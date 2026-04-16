@@ -670,16 +670,22 @@ async function enviarAvisoBackend(tipo) {
     });
 
     const data = await response.json();
+    console.log("RESPUESTA BACKEND KIOSKO:", data);
 
     if (!response.ok) {
-      throw new Error(data.detail || "No se pudo crear el aviso");
+      console.error("Error backend kiosko:", data);
+      return null;
+    }
+
+    if (!data || !data.id) {
+      console.error("No se recibió ID válido del backend:", data);
+      return null;
     }
 
     return data.id;
   } catch (error) {
-    console.error("Error real al crear aviso en backend:", error);
-    alert("No se pudo enviar el aviso al backend. Revisa la consola.");
-    throw error;
+    console.error("Error enviando aviso al backend:", error);
+    return null;
   }
 }
 
@@ -716,9 +722,19 @@ async function ejecutarAccion(tipo, config) {
 
     const avisoId = await enviarAvisoBackend(tipo);
 
-    setTimeout(() => {
-      window.location.replace(`espera-daily.html?id=${encodeURIComponent(avisoId)}`);
-    }, 150);
+if (!avisoId) {
+  errorMessage.style.display = "block";
+  preconnectScreen.classList.remove("active");
+  loadingMessage.style.display = "none";
+  resetUI();
+  alert("No se pudo crear el aviso en backend");
+  return;
+}
+
+setTimeout(() => {
+  window.location.replace(`espera-daily.html?id=${encodeURIComponent(avisoId)}`);
+}, 150);
+    
   } catch (error) {
     console.error("Error al enviar aviso:", error);
     preconnectScreen.classList.remove("active");
