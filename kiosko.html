@@ -1,0 +1,771 @@
+
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ND Hoteles</title>
+
+<style>
+* { box-sizing: border-box; }
+
+:root {
+  --pad-x: clamp(16px, 4vw, 30px);
+  --pad-y: clamp(12px, 2.2vh, 22px);
+  --logo-w: clamp(170px, 34vw, 285px);
+  --agent-w: clamp(88px, 18vw, 132px);
+  --agent-r: 20px;
+  --status-size: clamp(12px, 2vw, 16px);
+  --btn-size: clamp(16px, 2.8vw, 21px);
+  --status-text-size: clamp(14px, 2.2vw, 16px);
+}
+
+html, body {
+  margin: 0;
+  width: 100%;
+  min-height: 100%;
+  font-family: Arial, Helvetica, sans-serif;
+  background: radial-gradient(circle at top, #191919 0%, #080808 55%, #000000 100%);
+  color: #ffffff;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.wrapper {
+  width: 100%;
+  max-width: 640px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: var(--pad-y) var(--pad-x) calc(var(--pad-y) + 8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.logo-box {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: clamp(18px, 4vh, 40px);
+  margin-bottom: clamp(26px, 4vh, 46px);
+  flex-shrink: 0;
+}
+
+.logo-box img {
+  width: var(--logo-w);
+  max-width: 90%;
+  display: block;
+  filter: drop-shadow(0 0 18px rgba(255,255,255,0.12));
+}
+
+.center-block {
+  flex: 1;
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.agent-top {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.agent-top img {
+  width: var(--agent-w);
+  height: var(--agent-w);
+  object-fit: cover;
+  border-radius: var(--agent-r);
+  border: 1.5px solid rgba(255,255,255,0.15);
+  box-shadow: 0 0 20px rgba(255,255,255,0.10);
+  display: block;
+  animation: pulsePhoto 2.8s ease-in-out infinite;
+}
+
+.status-dot {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: var(--status-size);
+  height: var(--status-size);
+  border-radius: 50%;
+  background: #00ff6a;
+  box-shadow: 0 0 10px #00ff6a, 0 0 22px rgba(0,255,106,0.95);
+  border: 2px solid rgba(0,0,0,0.35);
+  z-index: 2;
+  animation: pulseDot 1.2s ease-in-out infinite;
+}
+
+.status-text {
+  font-size: var(--status-text-size);
+  margin-bottom: 14px;
+  color: rgba(125, 255, 179, 1);
+  letter-spacing: 0.01em;
+}
+
+.status-text.offline {
+  color: #ff8080;
+}
+
+.eyebrow {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 8px;
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.12;
+}
+
+.subtitle {
+  margin: 0 0 clamp(24px, 4.5vh, 38px);
+  font-size: 21px;
+  line-height: 1.35;
+  color: rgba(255,255,255,0.84);
+  max-width: 94%;
+}
+
+.buttons {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.btn {
+  width: 100%;
+  max-width: 390px;
+  padding: 18px 22px;
+  font-size: var(--btn-size);
+  font-family: Arial, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  margin-bottom: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #ffffff;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: linear-gradient(180deg, #1f1f1f, #111111);
+  transition: all 0.25s ease;
+}
+
+.btn span {
+  flex: 1;
+  text-align: left;
+}
+
+.btn::after {
+  content: "›";
+  font-size: 24px;
+  opacity: 0.65;
+  transition: all 0.25s ease;
+}
+
+.btn:hover { transform: translateY(-1px); }
+.btn:hover::after { opacity: 1; transform: translateX(2px); }
+
+.btn-primary {
+  background: linear-gradient(180deg, #1d1d1d, #0d0d0d);
+  border-color: rgba(125,255,179,0.25);
+  box-shadow: 0 0 18px rgba(125,255,179,0.08);
+}
+
+.btn-primary span {
+  color: #7dffb3;
+  animation: textPulseGreen 1.6s ease-in-out infinite;
+}
+
+.btn-primary:hover {
+  border-color: rgba(125,255,179,0.45);
+}
+
+.btn:active { transform: scale(0.985); }
+
+.btn-loading {
+  background: linear-gradient(180deg, #2e4a3b, #1b2f26) !important;
+  border-color: #3f7a5c !important;
+  color: #ffffff !important;
+  cursor: wait !important;
+}
+
+.btn-loading span {
+  color: #ffffff !important;
+  animation: none !important;
+}
+
+.secondary-buttons {
+  width: 100%;
+  max-width: 390px;
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.btn-soft {
+  flex: 1;
+  font-size: 15px;
+  padding: 14px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: linear-gradient(180deg, #1a1a1a, #101010);
+  color: #fff;
+}
+
+.btn-soft span {
+  width: 100%;
+  text-align: center;
+}
+
+.btn-soft::after { content: ""; }
+.btn-soft.ayuda { border-color: rgba(240,180,41,0.28); }
+.btn-soft.ayuda:hover { background: linear-gradient(180deg, #3a2e12, #1f1707); }
+.btn-soft.urgente { border-color: rgba(229,57,53,0.32); }
+.btn-soft.urgente:hover { background: linear-gradient(180deg, #3a1414, #1f0a0a); }
+
+#loadingMessage {
+  display: none;
+  margin-top: 10px;
+  font-size: 16px;
+  color: rgba(255,255,255,0.90);
+}
+
+#errorMessage {
+  display: none;
+  margin-top: 10px;
+  font-size: 15px;
+  color: #ff9a9a;
+}
+
+.preconnect-screen {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.90);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 24px;
+}
+
+.preconnect-screen.active { display: flex; }
+
+.preconnect-card {
+  width: 100%;
+  max-width: 430px;
+  background: linear-gradient(180deg, #181818, #0d0d0d);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 18px;
+  padding: 30px 26px 28px;
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+}
+
+.preconnect-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.preconnect-brand img {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: 18px;
+  box-shadow: 0 0 18px rgba(255,255,255,0.08);
+}
+
+.preconnect-title {
+  font-size: 27px;
+  font-weight: 600;
+  color: #ffffff;
+  margin-bottom: 10px;
+}
+
+.preconnect-status {
+  font-size: 14px;
+  color: #7dffb3;
+  margin-bottom: 18px;
+  letter-spacing: 0.04em;
+  animation: blinkSoft 2s ease-in-out infinite;
+}
+
+.preconnect-subtitle {
+  font-size: 17px;
+  line-height: 1.45;
+  color: rgba(255,255,255,0.78);
+  margin-bottom: 24px;
+}
+
+.preconnect-loader {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.preconnect-loader span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #7dffb3;
+  animation: preconnectBounce 1.2s infinite ease-in-out;
+}
+
+.preconnect-loader span:nth-child(2) { animation-delay: 0.15s; }
+.preconnect-loader span:nth-child(3) { animation-delay: 0.3s; }
+
+.preconnect-help {
+  font-size: 14px;
+  color: rgba(255,255,255,0.6);
+  margin-top: 18px;
+}
+
+.footer-block {
+  margin-top: clamp(14px, 3vh, 22px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.footer-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.95);
+  margin-bottom: 4px;
+}
+
+.footer-sub {
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+  margin-bottom: 6px;
+}
+
+.footer-phone a {
+  font-size: 18px;
+  color: #7dffb3;
+  text-decoration: none;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+@keyframes preconnectBounce {
+  0%, 80%, 100% { opacity: 0.35; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1.1); }
+}
+
+@keyframes blinkSoft {
+  0% { opacity: 1; }
+  50% { opacity: 0.55; }
+  100% { opacity: 1; }
+}
+
+@keyframes pulsePhoto {
+  0% { transform: scale(1); box-shadow: 0 0 18px rgba(255,255,255,0.10); }
+  50% { transform: scale(1.035); box-shadow: 0 0 26px rgba(255,255,255,0.18); }
+  100% { transform: scale(1); box-shadow: 0 0 18px rgba(255,255,255,0.10); }
+}
+
+@keyframes pulseDot {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25); opacity: 0.75; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes textPulseGreen {
+  0% { color: #7dffb3; opacity: 1; }
+  50% { color: #4ee38a; opacity: 0.65; }
+  100% { color: #7dffb3; opacity: 1; }
+}
+</style>
+</head>
+
+<body>
+
+<div class="preconnect-screen" id="preconnectScreen">
+  <div class="preconnect-card">
+    <div class="preconnect-brand">
+      <img src="https://res.cloudinary.com/df3qb7ens/image/upload/v1775333944/logo_ndhoteles3_chdcaw.webp" alt="ND Hoteles">
+    </div>
+    <div class="preconnect-title" id="preconnectTitle">Estamos conectando contigo</div>
+    <div class="preconnect-status" id="preconnectStatus">● Recepción ND disponible</div>
+    <div class="preconnect-subtitle" id="preconnectSubtitle">Estamos preparando tu atención personalizada en directo.</div>
+    <div class="preconnect-loader">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="preconnect-help" id="preconnectHelp">Permanece a la espera...</div>
+  </div>
+</div>
+
+<div class="wrapper">
+  <div class="logo-box">
+    <img src="https://grupondhoteles.com/wp-content/uploads/Logotipo-ND-Hoteles-blanco.webp" alt="ND Hoteles">
+  </div>
+
+  <div class="center-block">
+    <div class="agent-top">
+      <img src="https://res.cloudinary.com/dapmjgy3d/image/upload/c_fill,h_400,w_400/v1/Agente_nd_hoteles_yfxpp8.png" alt="Recepción ND">
+      <div class="status-dot" id="statusDot"></div>
+    </div>
+
+    <div class="status-text online" id="statusText">Recepción disponible</div>
+    <div class="eyebrow">ND Hoteles · Atención remota</div>
+    <p></p>
+
+    <h1>Bienvenido</h1>
+    <p class="subtitle">Inicia aquí tu llegada al Hotel estamos contigo ·Asistencia Inmediata·</p>
+
+    <div class="buttons">
+      <button class="btn btn-primary" id="mainButton" onclick="accionPrincipal()">
+        <span>Gestiona tu Check-in ·AHORA·</span>
+      </button>
+
+      <div class="secondary-buttons">
+        <button class="btn btn-soft ayuda" id="helpButton" onclick="accionAyuda()">
+          <span>🟡 Necesito ayuda</span>
+        </button>
+
+        <button class="btn btn-soft urgente" id="urgentButton" onclick="accionUrgente()">
+          <span>🔴 Urgente</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="loadingMessage">Estamos preparando tu atención...</div>
+    <div id="errorMessage">No se pudo enviar el aviso. Inténtalo de nuevo.</div>
+  </div>
+
+  <div class="footer-block">
+    <div class="footer-title">Recepción humana digital</div>
+    <div class="footer-sub">También puedes contactar directamente con ND HOTELES</div>
+    <div class="footer-phone">
+      <a href="tel:+34917469463">+34 917 469 463 </a>
+    </div>
+  </div>
+</div>
+<script type="module">
+const API_BASE = "https://nd-hoteles-backend.onrender.com";
+const DAILY_LINK = "https://ndhoteles.daily.co/ndhoteles?theme=dark";
+const HOTEL = "Valdemoro";
+const PUNTO = "Entrada principal";
+
+const statusDot = document.getElementById("statusDot");
+const statusText = document.getElementById("statusText");
+const mainButton = document.getElementById("mainButton");
+const helpButton = document.getElementById("helpButton");
+const urgentButton = document.getElementById("urgentButton");
+const loadingMessage = document.getElementById("loadingMessage");
+const errorMessage = document.getElementById("errorMessage");
+const preconnectScreen = document.getElementById("preconnectScreen");
+const preconnectTitle = document.getElementById("preconnectTitle");
+const preconnectStatus = document.getElementById("preconnectStatus");
+const preconnectSubtitle = document.getElementById("preconnectSubtitle");
+const preconnectHelp = document.getElementById("preconnectHelp");
+
+let dailyPopup = null;
+
+function prepararVentanaDaily() {
+  try {
+    dailyPopup = window.open("", "dailyKioskoWindow");
+
+    if (!dailyPopup) {
+      console.warn("No se pudo preparar la ventana Daily");
+      return false;
+    }
+
+    dailyPopup.document.write(`
+      <html>
+        <head>
+          <title>ND Hoteles</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <style>
+            html, body {
+              margin: 0;
+              padding: 0;
+              height: 100%;
+              background: #000;
+              color: #fff;
+              font-family: Arial, sans-serif;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              text-align: center;
+              overflow: hidden;
+            }
+            .box {
+              width: 100%;
+              max-width: 400px;
+              padding: 24px;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+            }
+            .logo {
+              width: 190px;
+              height: 190px;
+              object-fit: cover;
+              border-radius: 32px;
+              margin: 0 auto 18px;
+              box-shadow: 0 0 32px rgba(255,255,255,0.12);
+              display: block;
+              animation: pulseLogo 2.8s ease-in-out infinite;
+            }
+            .text {
+              font-size: 20px;
+              font-weight: 500;
+              color: rgba(255,255,255,0.92);
+              margin-top: 6px;
+            }
+            .loader {
+              margin-top: 20px;
+              display: flex;
+              justify-content: center;
+              gap: 10px;
+            }
+            .loader span {
+              width: 12px;
+              height: 12px;
+              border-radius: 50%;
+              background: #7dffb3;
+              animation: bounce 1.2s infinite ease-in-out;
+            }
+            .loader span:nth-child(2) { animation-delay: 0.15s; }
+            .loader span:nth-child(3) { animation-delay: 0.3s; }
+            @keyframes bounce {
+              0%, 80%, 100% { opacity: 0.35; transform: scale(0.8); }
+              40% { opacity: 1; transform: scale(1.2); }
+            }
+            @keyframes pulseLogo {
+              0% { transform: scale(1); opacity: 1; }
+              50% { transform: scale(1.05); opacity: 0.92; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="box">
+            <img
+              class="logo"
+              src="https://res.cloudinary.com/df3qb7ens/image/upload/v1775333944/logo_ndhoteles3_chdcaw.webp"
+              alt="ND Hoteles"
+            />
+            <div class="text">Conectando con recepción…</div>
+            <div class="loader">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    dailyPopup.document.close();
+
+    try {
+      dailyPopup.focus();
+    } catch (e) {
+      console.error("No se pudo enfocar la ventana Daily preparada:", e);
+    }
+
+    return true;
+  } catch (e) {
+    console.error("No se pudo preparar la ventana Daily:", e);
+    return false;
+  }
+}
+
+function resetUI() {
+  mainButton.disabled = false;
+  helpButton.disabled = false;
+  urgentButton.disabled = false;
+
+  mainButton.classList.remove("btn-loading");
+  helpButton.classList.remove("btn-loading");
+  urgentButton.classList.remove("btn-loading");
+
+  mainButton.innerHTML = "<span>Gestiona tu Check-in ·AHORA·</span>";
+  helpButton.innerHTML = "<span>🟡 Necesito ayuda</span>";
+  urgentButton.innerHTML = "<span>🔴 Urgente</span>";
+
+  loadingMessage.style.display = "none";
+  errorMessage.style.display = "none";
+  preconnectScreen.classList.remove("active");
+}
+
+async function recepcionDisponible() {
+  try {
+    const response = await fetch(`${API_BASE}/disponibilidad`);
+    const data = await response.json();
+    return !!data.disponible;
+  } catch (error) {
+    console.error("No se pudo consultar disponibilidad:", error);
+    return false;
+  }
+}
+
+async function actualizarEstado() {
+  resetUI();
+
+  try {
+    const response = await fetch(`${API_BASE}/disponibilidad`);
+    const data = await response.json();
+
+    if (data.disponible) {
+      statusDot.style.background = "#7dffb3";
+      statusDot.style.boxShadow = "0 0 10px #7dffb3, 0 0 22px rgba(125, 255, 179, 1)";
+      statusText.className = "status-text online";
+      statusText.textContent = data.mensaje || "Disponible";
+    } else {
+      statusDot.style.background = "#ff5c5c";
+      statusDot.style.boxShadow = "0 0 10px #ff5c5c, 0 0 22px rgba(255,92,92,0.80)";
+      statusText.className = "status-text offline";
+      statusText.textContent = data.mensaje || "Recepción no disponible";
+    }
+  } catch (error) {
+    console.error("Error consultando disponibilidad:", error);
+    statusDot.style.background = "#ff5c5c";
+    statusDot.style.boxShadow = "0 0 10px #ff5c5c, 0 0 22px rgba(255,92,92,0.80)";
+    statusText.className = "status-text offline";
+    statusText.textContent = "Backend no disponible";
+  }
+}
+
+async function enviarAvisoBackend(tipo) {
+  try {
+    const response = await fetch(`${API_BASE}/avisos`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        hotel: HOTEL,
+        punto: PUNTO,
+        tipo: tipo,
+        origenCanal: "kiosko",
+        dailyLink: DAILY_LINK,
+        nombreHuesped: "",
+        telefonoContacto: "",
+        anotacionAgente: "",
+        creadoManual: false
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || "No se pudo crear el aviso");
+    }
+
+    return data.id;
+  } catch (error) {
+    console.error("Error real al crear aviso en backend:", error);
+    alert("No se pudo enviar el aviso al backend. Revisa la consola.");
+    throw error;
+  }
+}
+
+function mostrarPantallaConexion(config) {
+  preconnectTitle.textContent = config.title;
+  preconnectStatus.textContent = config.status;
+  preconnectSubtitle.textContent = config.subtitle;
+  preconnectHelp.textContent = config.help;
+  preconnectScreen.classList.add("active");
+  loadingMessage.style.display = "block";
+}
+
+async function ejecutarAccion(tipo, config) {
+  errorMessage.style.display = "none";
+
+  try {
+    mainButton.disabled = true;
+    helpButton.disabled = true;
+    urgentButton.disabled = true;
+
+    if (tipo === "videollamada") {
+      mainButton.classList.add("btn-loading");
+      mainButton.innerHTML = "<span>Estamos conectando contigo</span>";
+    } else if (tipo === "ayuda") {
+      helpButton.classList.add("btn-loading");
+      helpButton.innerHTML = "<span>Solicitando ayuda...</span>";
+    } else if (tipo === "urgente") {
+      urgentButton.classList.add("btn-loading");
+      urgentButton.innerHTML = "<span>Activando urgente...</span>";
+    }
+
+    prepararVentanaDaily();
+    mostrarPantallaConexion(config);
+
+    const avisoId = await enviarAvisoBackend(tipo);
+
+    setTimeout(() => {
+      window.location.replace(`espera-daily.html?id=${encodeURIComponent(avisoId)}`);
+    }, 150);
+  } catch (error) {
+    console.error("Error al enviar aviso:", error);
+    preconnectScreen.classList.remove("active");
+    loadingMessage.style.display = "none";
+    errorMessage.style.display = "block";
+    resetUI();
+  }
+}
+
+window.accionPrincipal = async function () {
+  const disponible = await recepcionDisponible();
+  if (!disponible) return;
+
+  await ejecutarAccion("videollamada", {
+    title: "Estamos conectando contigo",
+    status: "● Recepción ND disponible",
+    subtitle: "Estamos preparando tu atención personalizada en directo.",
+    help: "Permanece a la espera..."
+  });
+};
+
+window.accionAyuda = async function () {
+  const disponible = await recepcionDisponible();
+  if (!disponible) return;
+
+  await ejecutarAccion("ayuda", {
+    title: "Estamos gestionando tu solicitud",
+    status: "● Aviso enviado",
+    subtitle: "En unos instantes un agente podrá atenderte por videollamada o resolver tu petición.",
+    help: "Permanece a la espera..."
+  });
+};
+
+window.accionUrgente = async function () {
+  const disponible = await recepcionDisponible();
+  if (!disponible) return;
+
+  await ejecutarAccion("urgente", {
+    title: "Atención prioritaria activada",
+    status: "● Aviso prioritario enviado",
+    subtitle: "Estamos notificando tu incidencia al equipo de recepción.",
+    help: "Un agente la verá de inmediato."
+  });
+};
+
+actualizarEstado();
+setInterval(actualizarEstado, 60000);
+</script>
+</body>
+</html>
