@@ -2046,6 +2046,26 @@ onSnapshot(collection(db, "avisos"), (snapshot) => {
   inicializado = true;
 });
 </script>
+ <script>
+  async function entrarEnDaily() {
+    try {
+      await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+      // ⚠️ AQUÍ VA TU LÓGICA ACTUAL DE DAILY
+      // ejemplo:
+      // await callFrame.join({ url: "TU_URL_DAILY" });
+
+      console.log("Entrada a Daily correcta");
+    } catch (error) {
+      console.error("Error al entrar en Daily:", error);
+      alert("No se pudo acceder a cámara/micrófono o entrar en la llamada.");
+    }
+  }
+
+  document.getElementById("btnAtender").addEventListener("click", async () => {
+    await entrarEnDaily();
+  });
+</script> 
 </body>
 </html>
 
