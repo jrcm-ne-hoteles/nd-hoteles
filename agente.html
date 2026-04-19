@@ -722,8 +722,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 </head>
 
 <body>
-<h1>borrador</h1>
-  <div class="page">
+<div class="page">
   <div class="topbar">
     <div class="topbar-logo">
       <img src="https://grupondhoteles.com/wp-content/uploads/Logotipo-ND-Hoteles-blanco.webp" alt="ND Hoteles">
@@ -953,9 +952,10 @@ button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
   </div>
 </div>
 
+<div id="daily-container" style="width:100%; max-width:960px; height:650px; margin:20px auto;"></div>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { getFirestore, collection, onSnapshot, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -967,18 +967,23 @@ const firebaseConfig = {
 const API_BASE = "https://nd-hoteles-backend.onrender.com";
 const AGENT_TOKEN = "nd_agent_2026_super_seguro";
 const ADMIN_TOKEN = "nd_admin_2026_super_seguro";
+const POLLING_MS = 2500;
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+initializeApp(firebaseConfig);
+const auth = getAuth();
 
 let agenteActual = null;
 let agenteEmailActual = "";
 let agenteUidActual = "";
-let inicializado = false;
+
 let historicoGlobal = [];
+let avisosActuales = [];
 let registroSeleccionado = null;
 let paginaHistoricoActual = 1;
+let pollTimer = null;
+let inicializado = false;
+let ultimoMapaAvisos = new Map();
+
 const HISTORICO_POR_PAGINA = 5;
 
 const listaVideollamadas = document.getElementById("lista-videollamadas");
@@ -1016,165 +1021,14 @@ const kpiUrgencias = document.getElementById("kpi-urgencias");
 const kpiFinalizados = document.getElementById("kpi-finalizados");
 const kpiTelefonicas = document.getElementById("kpi-telefonicas");
 
-onAuthStateChanged(auth, (user) => {
-  if (!user) {
-    window.location.replace("login-agente.html");
-    return;
-  }
-
-  agenteActual = user;
-  agenteEmailActual = user.email || "";
-  agenteUidActual = user.uid || "";
-
-  if (agenteActivoText) {
-    agenteActivoText.textContent = `Agente activo: ${agenteEmailActual}`;
-  }
-});
-
-window.cerrarSesionAgente = async function () {
-  try {
-    await signOut(auth);
-    window.location.replace("login-agente.html");
-  } catch (error) {
-    console.error("Error al cerrar sesión:", error);
-    alert("No se pudo cerrar sesión");
-  }
-};
-
-window.borrarTodoManual = async function () {
-  const confirmar = confirm("⚠️ Vas a borrar TODOS los avisos.\n\n¿Continuar?");
-  if (!confirmar) return;
-
-  try {
-    const response = await fetch(`${API_BASE}/admin/reset`, {
-      method: "POST",
-      headers: {
-        "X-Admin-Token": ADMIN_TOKEN
-      }
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al borrar");
-
-    alert("✅ Todo borrado correctamente");
-    estado.textContent = "Sistema limpio";
-  } catch (error) {
-    console.error(error);
-    alert("❌ Error al borrar");
-  }
-};
-
-function activarTab(tabName) {
-  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-  document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
-
-  const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
-  const panel = document.getElementById(`panel-${tabName}`);
-
-  if (btn) btn.classList.add("active");
-  if (panel) panel.classList.add("active");
+function escapeHtml(valor) {
+  return String(valor ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
-
-document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => activarTab(btn.dataset.tab));
-});
-
-btnNuevoManual?.addEventListener("click", () => {
-  manualForm?.classList.toggle("active");
-});
-
-cancelarManual?.addEventListener("click", () => {
-  manualForm?.classList.remove("active");
-});
-
-if (btnBorrarTodo) {
-  btnBorrarTodo.onclick = borrarTodoManual;
-}
-
-guardarManual?.addEventListener("click", async () => {
-  try {
-    const canal = document.getElementById("manualCanal")?.value || "kiosko";
-    const tipo = document.getElementById("manualTipo")?.value || "videollamada";
-    const estadoInicial = document.getElementById("manualEstado")?.value || "nuevo";
-    const hotel = document.getElementById("manualHotel")?.value.trim() || "Valdemoro";
-    const punto = document.getElementById("manualPunto")?.value.trim() || "Recepción";
-    const nombreHuesped = document.getElementById("manualNombre")?.value.trim() || "";
-    const telefono = document.getElementById("manualTelefono")?.value.trim() || "";
-    const nota = document.getElementById("manualNota")?.value.trim() || "";
-
-    const response = await fetch(`${API_BASE}/avisos`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        hotel,
-        punto,
-        tipo,
-        origenCanal: canal,
-        dailyLink: canal === "kiosko" ? "https://ndhoteles.daily.co/ndhoteles?theme=dark" : "",
-        nombreHuesped,
-        telefonoContacto: telefono,
-        anotacionAgente: nota,
-        creadoManual: true
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al crear aviso manual");
-
-    if (estadoInicial === "en_proceso") {
-      const r2 = await fetch(`${API_BASE}/avisos/${data.id}/estado`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Agent-Token": AGENT_TOKEN
-        },
-        body: JSON.stringify({
-          estado: "en_proceso",
-          retornarKiosko: canal === "kiosko",
-          agenteEmail: agenteEmailActual,
-          agenteUid: agenteUidActual
-        })
-      });
-
-      const d2 = await r2.json();
-      if (!r2.ok) throw new Error(d2.detail || "Error al actualizar estado inicial");
-    }
-
-    estado.textContent = "Aviso manual registrado correctamente.";
-    manualForm?.classList.remove("active");
-
-    document.getElementById("manualNombre").value = "";
-    document.getElementById("manualTelefono").value = "";
-    document.getElementById("manualNota").value = "";
-  } catch (error) {
-    console.error(error);
-    alert("Error al registrar el aviso manual");
-  }
-});
-
-historyFilter?.addEventListener("change", () => {
-  paginaHistoricoActual = 1;
-  renderHistorico();
-});
-
-historySearch?.addEventListener("input", () => {
-  paginaHistoricoActual = 1;
-  renderHistorico();
-});
-
-historyPrevBtn?.addEventListener("click", () => {
-  if (paginaHistoricoActual > 1) {
-    paginaHistoricoActual -= 1;
-    renderHistorico();
-  }
-});
-
-historyNextBtn?.addEventListener("click", () => {
-  paginaHistoricoActual += 1;
-  renderHistorico();
-});
 
 function normalizarTipo(valor) {
   const tipo = (valor || "").toLowerCase();
@@ -1211,598 +1065,136 @@ function etiquetaCanal(valor) {
   return "KIOSKO";
 }
 
-function fechaLegible(valor) {
-  try {
-    if (!valor) return "-";
-    if (typeof valor.toDate === "function") return valor.toDate().toLocaleString("es-ES");
+function normalizarFechaCruda(valor) {
+  if (!valor) return null;
+  if (typeof valor === "string" || typeof valor === "number") {
     const d = new Date(valor);
-    if (isNaN(d.getTime())) return "-";
-    return d.toLocaleString("es-ES");
-  } catch {
-    return "-";
+    if (!isNaN(d.getTime())) return d;
   }
+  if (typeof valor === "object") {
+    if (typeof valor.toDate === "function") {
+      const d = valor.toDate();
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (typeof valor.seconds === "number") {
+      const d = new Date(valor.seconds * 1000);
+      if (!isNaN(d.getTime())) return d;
+    }
+    if (typeof valor._seconds === "number") {
+      const d = new Date(valor._seconds * 1000);
+      if (!isNaN(d.getTime())) return d;
+    }
+  }
+  return null;
+}
+
+function fechaLegible(valor) {
+  const d = normalizarFechaCruda(valor);
+  return d ? d.toLocaleString("es-ES") : "-";
 }
 
 function fechaOrdenable(valor) {
-  try {
-    if (!valor) return 0;
-    if (typeof valor.toDate === "function") return valor.toDate().getTime();
-    const d = new Date(valor);
-    if (isNaN(d.getTime())) return 0;
-    return d.getTime();
-  } catch {
-    return 0;
-  }
+  const d = normalizarFechaCruda(valor);
+  return d ? d.getTime() : 0;
 }
 
 function esDeHoy(valor) {
-  try {
-    if (!valor) return false;
-    const d = typeof valor.toDate === "function" ? valor.toDate() : new Date(valor);
-    if (!d || isNaN(d.getTime())) return false;
-
-    const hoy = new Date();
-    return d.getDate() === hoy.getDate() && d.getMonth() === hoy.getMonth() && d.getFullYear() === hoy.getFullYear();
-  } catch {
-    return false;
-  }
+  const d = normalizarFechaCruda(valor);
+  if (!d) return false;
+  const hoy = new Date();
+  return d.getDate() === hoy.getDate() &&
+         d.getMonth() === hoy.getMonth() &&
+         d.getFullYear() === hoy.getFullYear();
 }
 
 function debeMostrarBotonRetorno(data) {
   return (data.origenCanal || "kiosko").toLowerCase() === "kiosko";
 }
-window.atenderCanalVideo = async (id, dailyLink) => {
-  try {
-    if (!id) {
-      alert("Falta el ID del aviso.");
-      return;
-    }
 
-    if (!dailyLink) {
-      alert("Este registro no tiene enlace Daily.");
-      return;
-    }
+function activarTab(tabName) {
+  document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
 
-    estado.textContent = "Abriendo llamada para el agente…";
+  const btn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+  const panel = document.getElementById(`panel-${tabName}`);
 
-    const r1 = await fetch(`${API_BASE}/avisos/${id}/estado`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({
-        estado: "en_atencion",
-        retornarKiosko: false,
-        agenteEmail: agenteEmailActual,
-        agenteUid: agenteUidActual
-      })
-    });
-
-    const data1 = await r1.json();
-    if (!r1.ok) throw new Error(data1.detail || "Error al abrir la llamada");
-
-    if (window.callFrame) {
-      await salirDeDaily();
-    }
-
-    const contenedor = document.getElementById("daily-container");
-    if (!contenedor) {
-      throw new Error("No existe #daily-container");
-    }
-
-    if (typeof DailyIframe === "undefined") {
-      throw new Error("DailyIframe no está cargado");
-    }
-
-    await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
-    window.callFrame = DailyIframe.createFrame(contenedor);
-
-    await window.callFrame.join({
-      url: dailyLink
-    });
-
-    estado.textContent = "Videollamada iniciada.";
-  } catch (error) {
-    console.error("Error al abrir Daily:", error);
-    estado.textContent = "Error al abrir la videollamada";
-    alert("No se pudo abrir la videollamada: " + (error.message || error));
-  }
-};
-
-window.finalizarVideollamada = async (id) => {
-  try {
-    const response = await fetch(`${API_BASE}/avisos/${id}/estado`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({
-        estado: "finalizada",
-        resultado: "checkin_finalizado",
-        retornarKiosko: true,
-        agenteEmail: agenteEmailActual,
-        agenteUid: agenteUidActual
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al finalizar");
-
-    estado.textContent = "Videollamada finalizada.";
-    await salirDeDaily();
-  } catch (error) {
-    console.error(error);
-    estado.textContent = "Error al finalizar";
-    alert("Error al finalizar la videollamada");
-  }
-};
-
-window.marcarEnProceso = async (id) => {
-  try {
-    const response = await fetch(`${API_BASE}/avisos/${id}/estado`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({
-        estado: "en_proceso",
-        retornarKiosko: true,
-        agenteEmail: agenteEmailActual,
-        agenteUid: agenteUidActual
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al marcar en proceso");
-
-    estado.textContent = "Caso marcado en proceso.";
-    await salirDeDaily();
-  } catch (error) {
-    console.error(error);
-    alert("Error al marcar en proceso");
-  }
-};
-
-window.marcarResuelta = async (id) => {
-  try {
-    const response = await fetch(`${API_BASE}/avisos/${id}/estado`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({
-        estado: "resuelta",
-        retornarKiosko: true,
-        agenteEmail: agenteEmailActual,
-        agenteUid: agenteUidActual
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al resolver");
-
-    estado.textContent = "Caso marcado como resuelto.";
-    await salirDeDaily();
-  } catch (error) {
-    console.error(error);
-    alert("Error al resolver");
-  }
-};
-
-window.enviarAHistorico = async (id) => {
-  try {
-    const response = await fetch(`${API_BASE}/avisos/${id}/estado`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({
-        estado: "resuelta",
-        resultado: "llamada_manual_historico",
-        retornarKiosko: false,
-        agenteEmail: agenteEmailActual,
-        agenteUid: agenteUidActual
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al enviar a histórico");
-
-    estado.textContent = "Llamada enviada a histórico.";
-  } catch (error) {
-    console.error(error);
-    alert("Error al enviar la llamada a histórico");
-  }
-};
-
-window.volverKioskoInicio = async (id) => {
-  try {
-    const response = await fetch(`${API_BASE}/avisos/${id}/estado`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({
-        estado: "retorno_inicio",
-        retornarKiosko: true,
-        agenteEmail: agenteEmailActual,
-        agenteUid: agenteUidActual
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al devolver al inicio");
-    await salirDeDaily();
-    estado.textContent = "Orden de retorno a pantalla inicial enviada.";
-  } catch (error) {
-    console.error(error);
-    alert("Error al devolver el kiosko al inicio");
-  }
-};
-
-window.archivarCaso = async (id) => {
-  try {
-    const response = await fetch(`${API_BASE}/avisos/${id}/estado`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({
-        estado: "archivada",
-        retornarKiosko: false,
-        agenteEmail: agenteEmailActual,
-        agenteUid: agenteUidActual
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al archivar");
-
-    estado.textContent = "Caso archivado.";
-  } catch (error) {
-    console.error(error);
-    alert("Error al archivar");
-  }
-};
-
-window.borrarCaso = async (id) => {
-  const confirmar = confirm("⚠️ Vas a borrar este registro definitivamente.\n\n¿Continuar?");
-  if (!confirmar) return;
-
-  try {
-    const response = await fetch(`${API_BASE}/avisos/${id}`, {
-      method: "DELETE",
-      headers: {
-        "X-Admin-Token": ADMIN_TOKEN
-      }
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al borrar");
-
-    estado.textContent = "Registro eliminado definitivamente.";
-  } catch (error) {
-    console.error(error);
-    alert("Error al borrar el registro");
-  }
-};
-
-window.guardarAnotacion = async (id) => {
-  try {
-    const textarea = document.getElementById(`nota-${id}`);
-    if (!textarea) return;
-
-    const texto = textarea.value.trim();
-
-    const response = await fetch(`${API_BASE}/avisos/${id}/anotacion`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({ anotacionAgente: texto })
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al guardar anotación");
-
-    estado.textContent = "Anotación guardada correctamente.";
-  } catch (error) {
-    console.error(error);
-    alert("Error al guardar la anotación");
-  }
-};
-
-window.guardarContacto = async (id) => {
-  try {
-    const nombreInput = document.getElementById(`nombre-${id}`);
-    const telefonoInput = document.getElementById(`telefono-${id}`);
-
-    const response = await fetch(`${API_BASE}/avisos/${id}/contacto`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({
-        nombreHuesped: nombreInput ? nombreInput.value.trim() : "",
-        telefonoContacto: telefonoInput ? telefonoInput.value.trim() : ""
-      })
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.detail || "Error al guardar contacto");
-
-    estado.textContent = "Contacto actualizado correctamente.";
-  } catch (error) {
-    console.error(error);
-    alert("Error al guardar nombre y teléfono");
-  }
-};
-
-window.guardarHistoricoCompleto = async (id) => {
-  try {
-    const item = historicoGlobal.find((entry) => entry.docSnap.id === id);
-    if (!item) return;
-    registroSeleccionado = { id: item.docSnap.id, data: item.data };
-    abrirFichaHistorico(item.data);
-    await guardarSeleccion();
-  } catch (error) {
-    console.error(error);
-    alert("Error al guardar los cambios del histórico");
-  }
-};
-
-window.guardarSeleccion = async () => {
-  try {
-    if (!registroSeleccionado) {
-      alert("Selecciona un registro del histórico");
-      return;
-    }
-
-    const id = registroSeleccionado.id;
-
-    const r1 = await fetch(`${API_BASE}/avisos/${id}/contacto`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({
-        nombreHuesped: historyEditNombre ? historyEditNombre.value.trim() : "",
-        telefonoContacto: historyEditTelefono ? historyEditTelefono.value.trim() : "",
-        email: historyEditEmail ? historyEditEmail.value.trim() : ""
-      })
-    });
-
-    const d1 = await r1.json();
-    if (!r1.ok) throw new Error(d1.detail || "Error al guardar contacto");
-
-    const r2 = await fetch(`${API_BASE}/avisos/${id}/anotacion`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Agent-Token": AGENT_TOKEN
-      },
-      body: JSON.stringify({
-        anotacionAgente: historyEditNota ? historyEditNota.value.trim() : ""
-      })
-    });
-
-    const d2 = await r2.json();
-    if (!r2.ok) throw new Error(d2.detail || "Error al guardar observaciones");
-
-    try {
-      await updateDoc(doc(db, "avisos", id), {
-        email: historyEditEmail ? historyEditEmail.value.trim() : ""
-      });
-    } catch (emailError) {
-      console.warn("No se pudo actualizar email directamente en Firestore:", emailError);
-    }
-
-    estado.textContent = "Registro histórico actualizado correctamente.";
-  } catch (error) {
-    console.error(error);
-    alert("Error al guardar el registro seleccionado");
-  }
-};
-
-window.archivarSeleccion = () => {
-  if (!registroSeleccionado) {
-    alert("Selecciona un registro del histórico");
-    return;
-  }
-  archivarCaso(registroSeleccionado.id);
-};
-
-window.borrarSeleccion = () => {
-  if (!registroSeleccionado) {
-    alert("Selecciona un registro del histórico");
-    return;
-  }
-  borrarCaso(registroSeleccionado.id);
-};
-
-function crearTarjeta(docSnap, data) {
-  const tipoClase = normalizarTipo(data.tipo);
-  const tipoLabel = etiquetaTipo(data.tipo);
-  const estadoLabel = etiquetaEstado(data.estado);
-  const canal = (data.origenCanal || "kiosko").toLowerCase();
-  const canalLabel = etiquetaCanal(canal);
-  const estadoAviso = (data.estado || "").toLowerCase();
-  const tipoAviso = (data.tipo || "").toLowerCase();
-  const mostrarRetorno = debeMostrarBotonRetorno(data);
-  const esManualOTelefono = canal === "telefono" || data.creadoManual === true;
-  const nombreHuesped = data.nombreHuesped || "";
-  const telefonoContacto = data.telefonoContacto || "";
-  const agenteAsignado = data.agenteAsignado || "";
-  const asignadoAOtroAgente = agenteAsignado && agenteEmailActual && agenteAsignado.toLowerCase() !== agenteEmailActual.toLowerCase();
-
-  const sourceRibbon = `
-<div class="source-ribbon ${tipoClase}">${tipoLabel}</div>
-<div class="channel-ribbon ${canal}">${canalLabel}</div>`;
-
-  const div = document.createElement("div");
-  div.className = "aviso " + tipoClase;
-
-  let botones = `
-<button class="btn-guardar" onclick="guardarContacto('${docSnap.id}')">Guardar nombre y teléfono</button>
-<button class="btn-guardar" onclick="guardarAnotacion('${docSnap.id}')">Guardar anotación</button>`;
-
-  if (tipoAviso === "videollamada") {
-    if (estadoAviso === "nuevo" && data.dailyLink) {
-      botones = `
-<button class="btn-atender" onclick="atenderCanalVideo('${docSnap.id}', '${data.dailyLink}')">Atender por videollamada</button>` + botones;
-    }
-    if (estadoAviso === "en_atencion" || estadoAviso === "listo_para_entrar") {
-      botones = `
-<button class="btn-finalizar" onclick="finalizarVideollamada('${docSnap.id}')">Finalizar check-in</button>` + botones;
-      if (mostrarRetorno) {
-        botones = `
-<button class="btn-retorno" onclick="volverKioskoInicio('${docSnap.id}')">Volver kiosko a inicio</button>` + botones;
-      }
-    }
-    if (estadoAviso === "en_proceso" && mostrarRetorno) {
-      botones = `
-<button class="btn-retorno" onclick="volverKioskoInicio('${docSnap.id}')">Volver kiosko a inicio</button>` + botones;
-    }
-  }
-
-  if (tipoAviso === "ayuda" || tipoAviso === "urgente") {
-    if (estadoAviso === "nuevo") {
-      if (data.dailyLink) {
-        botones = `
-<button class="btn-atender" onclick="atenderCanalVideo('${docSnap.id}', '${data.dailyLink}')">Atender por videollamada</button>` + botones;
-      }
-      botones = `
-<button class="btn-proceso" onclick="marcarEnProceso('${docSnap.id}')">Marcar en proceso</button>
-<button class="btn-resolver" onclick="marcarResuelta('${docSnap.id}')">Resolver</button>` + botones;
-      if (mostrarRetorno) {
-        botones = `
-<button class="btn-retorno" onclick="volverKioskoInicio('${docSnap.id}')">Volver kiosko a inicio</button>` + botones;
-      }
-    }
-
-    if (estadoAviso === "en_atencion" || estadoAviso === "listo_para_entrar") {
-      botones = `
-<button class="btn-proceso" onclick="marcarEnProceso('${docSnap.id}')">Marcar en proceso</button>
-<button class="btn-resolver" onclick="marcarResuelta('${docSnap.id}')">Resolver</button>` + botones;
-      if (mostrarRetorno) {
-        botones = `
-<button class="btn-retorno" onclick="volverKioskoInicio('${docSnap.id}')">Volver kiosko a inicio</button>` + botones;
-      }
-    }
-
-    if (estadoAviso === "en_proceso") {
-      botones = `
-<button class="btn-resolver" onclick="marcarResuelta('${docSnap.id}')">Resolver</button>` + botones;
-      if (mostrarRetorno) {
-        botones = `
-<button class="btn-retorno" onclick="volverKioskoInicio('${docSnap.id}')">Volver kiosko a inicio</button>` + botones;
-      }
-    }
-  }
-
-  if (esManualOTelefono && data.enHistorico !== true) {
-    botones += `
-<button class="btn-archivar" onclick="enviarAHistorico('${docSnap.id}')">Enviar a histórico</button>`;
-  }
-
-  if (asignadoAOtroAgente) {
-    botones = botones.replace(/<button /g, '<button disabled style="opacity:0.45; cursor:not-allowed;" ');
-  }
-
-  div.innerHTML = `
-    ${sourceRibbon}
-<div class="aviso-head">
-  <h3 class="aviso-title">${data.hotel || "ND Hoteles"}</h3>
-  <div class="aviso-tag">${tipoLabel}</div>
-</div>
-<div class="aviso-grid">
-  <div class="info-box">
-    <div class="info-label">Ubicación</div>
-    <div class="info-value">${data.punto || "Punto no indicado"}</div>
-  </div>
-  <div class="info-box">
-    <div class="info-label">Estado</div>
-    <div class="info-value">${estadoLabel}</div>
-  </div>
-  <div class="info-box">
-    <div class="info-label">Fecha / hora</div>
-    <div class="info-value">${fechaLegible(data.creado)}</div>
-  </div>
-  <div class="info-box">
-    <div class="info-label">Canal</div>
-    <div class="info-value">${canalLabel}</div>
-  </div>
-  <div class="info-box">
-    <div class="info-label">Agente asignado</div>
-    <div class="info-value">${agenteAsignado || "Sin asignar"}</div>
-  </div>
-</div>
-<div class="edit-box">
-  <div class="edit-label">Datos del huésped editables</div>
-  <div class="edit-grid">
-    <input id="nombre-${docSnap.id}" type="text" placeholder="Nombre del huésped" value="${nombreHuesped.replace(/"/g, '&quot;')}">
-    <input id="telefono-${docSnap.id}" type="text" placeholder="Teléfono de contacto" value="${telefonoContacto.replace(/"/g, '&quot;')}">
-  </div>
-</div>
-<div class="anotacion-box">
-  <div class="anotacion-label">Anotaciones realizadas por agente</div>
-  <textarea id="nota-${docSnap.id}" placeholder="Escribe aquí el motivo, resultado, estado del check-in o cualquier observación relevante.">${data.anotacionAgente || ""}</textarea>
-</div>
-${asignadoAOtroAgente ? `
-<div style="margin-top:12px; padding:10px 12px; border-radius:10px; background:rgba(255,80,80,0.12); border:1px solid rgba(255,80,80,0.28); color:#ffb3b3; font-size:13px; font-weight:600;">
-  Este aviso está siendo gestionado por ${agenteAsignado}
-</div>` : ""}
-<div class="botones">
-  ${botones}
-</div>`;
-  return div;
+  if (btn) btn.classList.add("active");
+  if (panel) panel.classList.add("active");
 }
 
-function crearFilaHistorico(docSnap, data) {
-  const tipoClase = normalizarTipo(data.tipo);
-  const tipoLabel = etiquetaTipo(data.tipo);
-  const estadoLabel = etiquetaEstado(data.estado);
-  const canal = (data.origenCanal || "kiosko").toLowerCase();
-  const canalLabel = etiquetaCanal(canal);
-  const nombreHuesped = data.nombreHuesped || "";
-  const telefonoContacto = data.telefonoContacto || "";
-  const anotacion = (data.anotacionAgente || "").replace(/\s+/g, " ").trim();
-  const anotacionResumen = anotacion.length > 70 ? anotacion.slice(0, 70) + "…" : anotacion;
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => activarTab(btn.dataset.tab));
+});
 
-  const tr = document.createElement("tr");
+btnNuevoManual?.addEventListener("click", () => {
+  manualForm?.classList.toggle("active");
+});
 
-  tr.addEventListener("click", () => {
-    document.querySelectorAll("#historyBody tr").forEach((row) => row.classList.remove("history-row-selected"));
-    tr.classList.add("history-row-selected");
-    registroSeleccionado = { id: docSnap.id, data };
-    abrirFichaHistorico(data);
-    if (historySelectionState) {
-      historySelectionState.textContent = `Seleccionado: ${data.hotel || "ND Hoteles"} · ${tipoLabel}`;
+cancelarManual?.addEventListener("click", () => {
+  manualForm?.classList.remove("active");
+});
+
+historyFilter?.addEventListener("change", () => {
+  paginaHistoricoActual = 1;
+  renderHistorico();
+});
+
+historySearch?.addEventListener("input", () => {
+  paginaHistoricoActual = 1;
+  renderHistorico();
+});
+
+historyPrevBtn?.addEventListener("click", () => {
+  if (paginaHistoricoActual > 1) {
+    paginaHistoricoActual -= 1;
+    renderHistorico();
+  }
+});
+
+historyNextBtn?.addEventListener("click", () => {
+  paginaHistoricoActual += 1;
+  renderHistorico();
+});
+
+async function apiGet(path, extraHeaders = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "GET",
+    headers: {
+      ...extraHeaders
     }
   });
 
-  tr.innerHTML = `
-    <td>${fechaLegible(data.creado)}</td>
-    <td>${data.hotel || "ND Hoteles"}</td>
-    <td>${data.punto || "Punto no indicado"}</td>
-    <td><span class="history-origin ${tipoClase}">${tipoLabel}</span></td>
-    <td><span class="history-channel ${canal}">${canalLabel}</span></td>
-    <td>${nombreHuesped || "-"}</td>
-    <td>${telefonoContacto || "-"}</td>
-    <td>${estadoLabel}</td>
-    <td>${anotacionResumen || "-"}</td>`;
-  return tr;
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || "Error en GET");
+  return data;
+}
+
+async function apiPost(path, body, extraHeaders = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...extraHeaders
+    },
+    body: JSON.stringify(body || {})
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || "Error en POST");
+  return data;
+}
+
+async function apiDelete(path, extraHeaders = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "DELETE",
+    headers: {
+      ...extraHeaders
+    }
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.detail || "Error en DELETE");
+  return data;
 }
 
 function abrirFichaHistorico(data) {
@@ -1815,6 +1207,45 @@ function abrirFichaHistorico(data) {
   if (historyEditEmail) historyEditEmail.value = data.email || "";
   if (historyEditEstado) historyEditEstado.value = etiquetaEstado(data.estado);
   if (historyEditNota) historyEditNota.value = data.anotacionAgente || "";
+}
+
+function crearFilaHistorico(item) {
+  const data = item.data;
+  const tipoClase = normalizarTipo(data.tipo);
+  const tipoLabel = etiquetaTipo(data.tipo);
+  const estadoLabel = etiquetaEstado(data.estado);
+  const canal = (data.origenCanal || "kiosko").toLowerCase();
+  const canalLabel = etiquetaCanal(canal);
+  const nombreHuesped = data.nombreHuesped || "";
+  const telefonoContacto = data.telefonoContacto || "";
+  const anotacion = (data.anotacionAgente || "").replace(/\s+/g, " ").trim();
+  const anotacionResumen = anotacion.length > 70 ? `${anotacion.slice(0, 70)}…` : anotacion;
+
+  const tr = document.createElement("tr");
+
+  tr.addEventListener("click", () => {
+    document.querySelectorAll("#historyBody tr").forEach((row) => row.classList.remove("history-row-selected"));
+    tr.classList.add("history-row-selected");
+    registroSeleccionado = { id: item.id, data };
+    abrirFichaHistorico(data);
+    if (historySelectionState) {
+      historySelectionState.textContent = `Seleccionado: ${data.hotel || "ND Hoteles"} · ${tipoLabel}`;
+    }
+  });
+
+  tr.innerHTML = `
+    <td>${escapeHtml(fechaLegible(data.creado))}</td>
+    <td>${escapeHtml(data.hotel || "ND Hoteles")}</td>
+    <td>${escapeHtml(data.punto || "Punto no indicado")}</td>
+    <td><span class="history-origin ${tipoClase}">${escapeHtml(tipoLabel)}</span></td>
+    <td><span class="history-channel ${canal}">${escapeHtml(canalLabel)}</span></td>
+    <td>${escapeHtml(nombreHuesped || "-")}</td>
+    <td>${escapeHtml(telefonoContacto || "-")}</td>
+    <td>${escapeHtml(estadoLabel)}</td>
+    <td>${escapeHtml(anotacionResumen || "-")}</td>
+  `;
+
+  return tr;
 }
 
 function renderHistorico() {
@@ -1847,8 +1278,8 @@ function renderHistorico() {
   const filtrado = filtradoBase.slice(inicio, inicio + HISTORICO_POR_PAGINA);
 
   filtrado.forEach((item) => {
-    const row = crearFilaHistorico(item.docSnap, item.data);
-    if (registroSeleccionado && registroSeleccionado.id === item.docSnap.id) {
+    const row = crearFilaHistorico(item);
+    if (registroSeleccionado && registroSeleccionado.id === item.id) {
       row.classList.add("history-row-selected");
     }
     historyBody.appendChild(row);
@@ -1863,20 +1294,151 @@ function renderHistorico() {
   if (historyNextBtn) historyNextBtn.disabled = paginaHistoricoActual >= totalPaginas;
 }
 
-onSnapshot(collection(db, "avisos"), (snapshot) => {
+function crearTarjeta(item) {
+  const data = item.data;
+  const tipoClase = normalizarTipo(data.tipo);
+  const tipoLabel = etiquetaTipo(data.tipo);
+  const estadoLabel = etiquetaEstado(data.estado);
+  const canal = (data.origenCanal || "kiosko").toLowerCase();
+  const canalLabel = etiquetaCanal(canal);
+  const estadoAviso = (data.estado || "").toLowerCase();
+  const tipoAviso = (data.tipo || "").toLowerCase();
+  const mostrarRetorno = debeMostrarBotonRetorno(data);
+  const esManualOTelefono = canal === "telefono" || data.creadoManual === true;
+  const nombreHuesped = data.nombreHuesped || "";
+  const telefonoContacto = data.telefonoContacto || "";
+  const agenteAsignado = data.agenteAsignado || "";
+  const asignadoAOtroAgente = agenteAsignado && agenteEmailActual && agenteAsignado.toLowerCase() !== agenteEmailActual.toLowerCase();
+
+  const sourceRibbon = `
+<div class="source-ribbon ${tipoClase}">${escapeHtml(tipoLabel)}</div>
+<div class="channel-ribbon ${canal}">${escapeHtml(canalLabel)}</div>`;
+
+  const div = document.createElement("div");
+  div.className = "aviso " + tipoClase;
+
+  let botones = `
+<button class="btn-guardar" onclick="guardarContacto('${item.id}')">Guardar nombre y teléfono</button>
+<button class="btn-guardar" onclick="guardarAnotacion('${item.id}')">Guardar anotación</button>`;
+
+  if (tipoAviso === "videollamada") {
+    if (estadoAviso === "nuevo" && data.dailyLink) {
+      botones = `
+<button class="btn-atender" onclick="atenderCanalVideo('${item.id}', '${escapeHtml(data.dailyLink)}')">Atender por videollamada</button>` + botones;
+    }
+    if (estadoAviso === "en_atencion" || estadoAviso === "listo_para_entrar") {
+      botones = `
+<button class="btn-finalizar" onclick="finalizarVideollamada('${item.id}')">Finalizar check-in</button>` + botones;
+      if (mostrarRetorno) {
+        botones = `
+<button class="btn-retorno" onclick="volverKioskoInicio('${item.id}')">Volver kiosko a inicio</button>` + botones;
+      }
+    }
+    if (estadoAviso === "en_proceso" && mostrarRetorno) {
+      botones = `
+<button class="btn-retorno" onclick="volverKioskoInicio('${item.id}')">Volver kiosko a inicio</button>` + botones;
+    }
+  }
+
+  if (tipoAviso === "ayuda" || tipoAviso === "urgente") {
+    if (estadoAviso === "nuevo") {
+      if (data.dailyLink) {
+        botones = `
+<button class="btn-atender" onclick="atenderCanalVideo('${item.id}', '${escapeHtml(data.dailyLink)}')">Atender por videollamada</button>` + botones;
+      }
+      botones = `
+<button class="btn-proceso" onclick="marcarEnProceso('${item.id}')">Marcar en proceso</button>
+<button class="btn-resolver" onclick="marcarResuelta('${item.id}')">Resolver</button>` + botones;
+      if (mostrarRetorno) {
+        botones = `
+<button class="btn-retorno" onclick="volverKioskoInicio('${item.id}')">Volver kiosko a inicio</button>` + botones;
+      }
+    }
+
+    if (estadoAviso === "en_atencion" || estadoAviso === "listo_para_entrar") {
+      botones = `
+<button class="btn-proceso" onclick="marcarEnProceso('${item.id}')">Marcar en proceso</button>
+<button class="btn-resolver" onclick="marcarResuelta('${item.id}')">Resolver</button>` + botones;
+      if (mostrarRetorno) {
+        botones = `
+<button class="btn-retorno" onclick="volverKioskoInicio('${item.id}')">Volver kiosko a inicio</button>` + botones;
+      }
+    }
+
+    if (estadoAviso === "en_proceso") {
+      botones = `
+<button class="btn-resolver" onclick="marcarResuelta('${item.id}')">Resolver</button>` + botones;
+      if (mostrarRetorno) {
+        botones = `
+<button class="btn-retorno" onclick="volverKioskoInicio('${item.id}')">Volver kiosko a inicio</button>` + botones;
+      }
+    }
+  }
+
+  if (esManualOTelefono && data.enHistorico !== true) {
+    botones += `
+<button class="btn-archivar" onclick="enviarAHistorico('${item.id}')">Enviar a histórico</button>`;
+  }
+
+  if (asignadoAOtroAgente) {
+    botones = botones.replace(/<button /g, '<button disabled style="opacity:0.45; cursor:not-allowed;" ');
+  }
+
+  div.innerHTML = `
+    ${sourceRibbon}
+<div class="aviso-head">
+  <h3 class="aviso-title">${escapeHtml(data.hotel || "ND Hoteles")}</h3>
+  <div class="aviso-tag">${escapeHtml(tipoLabel)}</div>
+</div>
+<div class="aviso-grid">
+  <div class="info-box">
+    <div class="info-label">Ubicación</div>
+    <div class="info-value">${escapeHtml(data.punto || "Punto no indicado")}</div>
+  </div>
+  <div class="info-box">
+    <div class="info-label">Estado</div>
+    <div class="info-value">${escapeHtml(estadoLabel)}</div>
+  </div>
+  <div class="info-box">
+    <div class="info-label">Fecha / hora</div>
+    <div class="info-value">${escapeHtml(fechaLegible(data.creado))}</div>
+  </div>
+  <div class="info-box">
+    <div class="info-label">Canal</div>
+    <div class="info-value">${escapeHtml(canalLabel)}</div>
+  </div>
+  <div class="info-box">
+    <div class="info-label">Agente asignado</div>
+    <div class="info-value">${escapeHtml(agenteAsignado || "Sin asignar")}</div>
+  </div>
+</div>
+<div class="edit-box">
+  <div class="edit-label">Datos del huésped editables</div>
+  <div class="edit-grid">
+    <input id="nombre-${item.id}" type="text" placeholder="Nombre del huésped" value="${escapeHtml(nombreHuesped)}">
+    <input id="telefono-${item.id}" type="text" placeholder="Teléfono de contacto" value="${escapeHtml(telefonoContacto)}">
+  </div>
+</div>
+<div class="anotacion-box">
+  <div class="anotacion-label">Anotaciones realizadas por agente</div>
+  <textarea id="nota-${item.id}" placeholder="Escribe aquí el motivo, resultado, estado del check-in o cualquier observación relevante.">${escapeHtml(data.anotacionAgente || "")}</textarea>
+</div>
+${asignadoAOtroAgente ? `
+<div style="margin-top:12px; padding:10px 12px; border-radius:10px; background:rgba(255,80,80,0.12); border:1px solid rgba(255,80,80,0.28); color:#ffb3b3; font-size:13px; font-weight:600;">
+  Este aviso está siendo gestionado por ${escapeHtml(agenteAsignado)}
+</div>` : ""}
+<div class="botones">
+  ${botones}
+</div>`;
+
+  return div;
+}
+
+function actualizarUIDesdeAvisos(nuevaLista) {
   if (listaVideollamadas) listaVideollamadas.innerHTML = "";
   if (listaAyuda) listaAyuda.innerHTML = "";
   if (listaUrgente) listaUrgente.innerHTML = "";
-  if (historyBody) historyBody.innerHTML = "";
   historicoGlobal = [];
-
-  if (estado.textContent === "Conectando…") {
-    estado.textContent = "Conectado correctamente";
-  }
-
-  let nuevoAvisoDetectado = false;
-  let ultimoTipoRecibido = "";
-  let ultimoCanalRecibido = "";
 
   const videollamadasActivas = [];
   const ayudas = [];
@@ -1887,35 +1449,35 @@ onSnapshot(collection(db, "avisos"), (snapshot) => {
   let totalUrgenciasHoy = 0;
   let totalCheckinFinalizadosHoy = 0;
   let totalTelefonicasHoy = 0;
-
   let ayudasAbiertas = 0;
   let urgenciasAbiertas = 0;
 
-  snapshot.docChanges().forEach((change) => {
-    if (change.type === "added" && inicializado) {
+  let nuevoAvisoDetectado = false;
+  let ultimoTipoRecibido = "";
+  let ultimoCanalRecibido = "";
+
+  const nuevoMapa = new Map();
+
+  nuevaLista.forEach((item) => {
+    nuevoMapa.set(item.id, item);
+
+    if (inicializado && !ultimoMapaAvisos.has(item.id)) {
       nuevoAvisoDetectado = true;
-      const nuevoData = change.doc.data();
-      ultimoTipoRecibido = (nuevoData.tipo || "").toLowerCase();
-      ultimoCanalRecibido = (nuevoData.origenCanal || "kiosko").toLowerCase();
+      ultimoTipoRecibido = (item.data.tipo || "").toLowerCase();
+      ultimoCanalRecibido = (item.data.origenCanal || "kiosko").toLowerCase();
     }
   });
 
-  snapshot.forEach((docSnap) => {
-    const data = docSnap.data();
+  nuevaLista.forEach((item) => {
+    const data = item.data;
     const tipoAviso = (data.tipo || "").toLowerCase();
     const estadoAviso = (data.estado || "").toLowerCase();
     const canal = (data.origenCanal || "kiosko").toLowerCase();
 
-    if (esDeHoy(data.creado) && canal === "kiosko" && (tipoAviso === "videollamada" || tipoAviso === "ayuda" || tipoAviso === "urgente")) {
-      totalVideollamadasHoy++;
-    }
-
-    if (canal === "telefono" && esDeHoy(data.creado)) {
-      totalTelefonicasHoy++;
-    }
-
+    if (tipoAviso === "videollamada" && esDeHoy(data.creado)) totalVideollamadasHoy++;
     if (tipoAviso === "ayuda" && esDeHoy(data.creado)) totalAyudasHoy++;
     if (tipoAviso === "urgente" && esDeHoy(data.creado)) totalUrgenciasHoy++;
+    if (canal === "telefono" && esDeHoy(data.creado)) totalTelefonicasHoy++;
     if (tipoAviso === "videollamada" && estadoAviso === "finalizada" && esDeHoy(data.creado)) totalCheckinFinalizadosHoy++;
 
     if (estadoAviso === "archivada") return;
@@ -1924,23 +1486,23 @@ onSnapshot(collection(db, "avisos"), (snapshot) => {
     const cerrado = ["finalizada", "resuelta", "retorno_inicio"].includes(estadoAviso);
 
     if (enHistorico || cerrado) {
-      historicoGlobal.push({ docSnap, data });
+      historicoGlobal.push(item);
       return;
     }
 
     if (tipoAviso === "videollamada") {
-      videollamadasActivas.push({ docSnap, data });
+      videollamadasActivas.push(item);
       return;
     }
 
     if (tipoAviso === "ayuda") {
-      ayudas.push({ docSnap, data });
+      ayudas.push(item);
       ayudasAbiertas++;
       return;
     }
 
     if (tipoAviso === "urgente") {
-      urgencias.push({ docSnap, data });
+      urgencias.push(item);
       urgenciasAbiertas++;
     }
   });
@@ -1950,20 +1512,14 @@ onSnapshot(collection(db, "avisos"), (snapshot) => {
   urgencias.sort((a, b) => fechaOrdenable(b.data.creado) - fechaOrdenable(a.data.creado));
   historicoGlobal.sort((a, b) => fechaOrdenable(b.data.creado) - fechaOrdenable(a.data.creado));
 
-  videollamadasActivas.forEach((item) => {
-    if (listaVideollamadas) listaVideollamadas.appendChild(crearTarjeta(item.docSnap, item.data));
-  });
-  ayudas.forEach((item) => {
-    if (listaAyuda) listaAyuda.appendChild(crearTarjeta(item.docSnap, item.data));
-  });
-  urgencias.forEach((item) => {
-    if (listaUrgente) listaUrgente.appendChild(crearTarjeta(item.docSnap, item.data));
-  });
+  videollamadasActivas.forEach((item) => listaVideollamadas?.appendChild(crearTarjeta(item)));
+  ayudas.forEach((item) => listaAyuda?.appendChild(crearTarjeta(item)));
+  urgencias.forEach((item) => listaUrgente?.appendChild(crearTarjeta(item)));
 
   if (registroSeleccionado) {
-    const actualizado = historicoGlobal.find((item) => item.docSnap.id === registroSeleccionado.id);
+    const actualizado = historicoGlobal.find((item) => item.id === registroSeleccionado.id);
     if (actualizado) {
-      registroSeleccionado = { id: actualizado.docSnap.id, data: actualizado.data };
+      registroSeleccionado = { id: actualizado.id, data: actualizado.data };
       abrirFichaHistorico(actualizado.data);
       if (historySelectionState) {
         historySelectionState.textContent = `Seleccionado: ${actualizado.data.hotel || "ND Hoteles"} · ${etiquetaTipo(actualizado.data.tipo)}`;
@@ -1994,6 +1550,7 @@ onSnapshot(collection(db, "avisos"), (snapshot) => {
   if (kpiUrgencias) kpiUrgencias.textContent = totalUrgenciasHoy;
   if (kpiFinalizados) kpiFinalizados.textContent = totalCheckinFinalizadosHoy;
   if (kpiTelefonicas) kpiTelefonicas.textContent = totalTelefonicasHoy;
+
   if (alerta) alerta.style.display = nuevoAvisoDetectado ? "block" : "none";
 
   if (nuevoAvisoDetectado && avisoDestino) {
@@ -2033,31 +1590,447 @@ onSnapshot(collection(db, "avisos"), (snapshot) => {
     }, 5000);
   }
 
+  ultimoMapaAvisos = nuevoMapa;
   inicializado = true;
+}
+
+async function cargarAvisos() {
+  try {
+    const data = await apiGet("/avisos", {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    const lista = Array.isArray(data) ? data : (Array.isArray(data.avisos) ? data.avisos : []);
+
+    avisosActuales = lista.map((aviso) => ({
+      id: aviso.id,
+      data: aviso
+    }));
+
+    actualizarUIDesdeAvisos(avisosActuales);
+
+    if (estado.textContent === "Conectando…" || estado.textContent.includes("Error")) {
+      estado.textContent = "Conectado correctamente";
+    }
+  } catch (error) {
+    console.error("Error cargando avisos:", error);
+    estado.textContent = "Error al conectar con el backend";
+  }
+}
+
+function iniciarPollingAvisos() {
+  if (pollTimer) clearInterval(pollTimer);
+  cargarAvisos();
+  pollTimer = setInterval(cargarAvisos, POLLING_MS);
+}
+
+async function salirDeDaily() {
+  try {
+    if (window.callFrame) {
+      await window.callFrame.leave();
+      await window.callFrame.destroy();
+      window.callFrame = null;
+    }
+
+    const contenedor = document.getElementById("daily-container");
+    if (contenedor) {
+      contenedor.innerHTML = "";
+    }
+  } catch (error) {
+    console.error("Error al salir de Daily:", error);
+  }
+}
+
+window.cerrarSesionAgente = async function () {
+  try {
+    if (pollTimer) clearInterval(pollTimer);
+    await signOut(auth);
+    window.location.replace("login-agente.html");
+  } catch (error) {
+    console.error("Error al cerrar sesión:", error);
+    alert("No se pudo cerrar sesión");
+  }
+};
+
+window.borrarTodoManual = async function () {
+  const confirmar = confirm("⚠️ Vas a borrar TODOS los avisos.\n\n¿Continuar?");
+  if (!confirmar) return;
+
+  try {
+    await apiPost("/admin/reset", {}, {
+      "X-Admin-Token": ADMIN_TOKEN
+    });
+
+    alert("✅ Todo borrado correctamente");
+    estado.textContent = "Sistema limpio";
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("❌ Error al borrar");
+  }
+};
+
+if (btnBorrarTodo) {
+  btnBorrarTodo.onclick = borrarTodoManual;
+}
+
+guardarManual?.addEventListener("click", async () => {
+  try {
+    const canal = document.getElementById("manualCanal")?.value || "kiosko";
+    const tipo = document.getElementById("manualTipo")?.value || "videollamada";
+    const estadoInicial = document.getElementById("manualEstado")?.value || "nuevo";
+    const hotel = document.getElementById("manualHotel")?.value.trim() || "Valdemoro";
+    const punto = document.getElementById("manualPunto")?.value.trim() || "Recepción";
+    const nombreHuesped = document.getElementById("manualNombre")?.value.trim() || "";
+    const telefono = document.getElementById("manualTelefono")?.value.trim() || "";
+    const nota = document.getElementById("manualNota")?.value.trim() || "";
+
+    const data = await apiPost("/avisos", {
+      hotel,
+      punto,
+      tipo,
+      origenCanal: canal,
+      dailyLink: canal === "kiosko" ? "https://ndhoteles.daily.co/ndhoteles?theme=dark" : "",
+      nombreHuesped,
+      telefonoContacto: telefono,
+      anotacionAgente: nota,
+      creadoManual: true
+    });
+
+    if (estadoInicial === "en_proceso") {
+      await apiPost(`/avisos/${data.id}/estado`, {
+        estado: "en_proceso",
+        retornarKiosko: canal === "kiosko",
+        agenteEmail: agenteEmailActual,
+        agenteUid: agenteUidActual
+      }, {
+        "X-Agent-Token": AGENT_TOKEN
+      });
+    }
+
+    estado.textContent = "Aviso manual registrado correctamente.";
+    manualForm?.classList.remove("active");
+
+    document.getElementById("manualNombre").value = "";
+    document.getElementById("manualTelefono").value = "";
+    document.getElementById("manualNota").value = "";
+
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("Error al registrar el aviso manual");
+  }
+});
+
+window.atenderCanalVideo = async function (id, dailyLink) {
+  try {
+    if (!id) {
+      alert("Falta el ID del aviso.");
+      return;
+    }
+
+    if (!dailyLink) {
+      alert("Este registro no tiene enlace Daily.");
+      return;
+    }
+
+    const popup = window.open("", "_blank", "noopener,noreferrer");
+    if (!popup) {
+      alert("El navegador ha bloqueado la apertura de la videollamada.");
+      return;
+    }
+
+    popup.document.write(`
+      <html>
+        <head><title>Conectando videollamada…</title></head>
+        <body style="margin:0; font-family:Arial,sans-serif; background:#111; color:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh;">
+          <div>Conectando con la videollamada…</div>
+        </body>
+      </html>
+    `);
+    popup.document.close();
+
+    estado.textContent = "Abriendo llamada para el agente…";
+
+    await apiPost(`/avisos/${id}/estado`, {
+      estado: "en_atencion",
+      retornarKiosko: false,
+      agenteEmail: agenteEmailActual,
+      agenteUid: agenteUidActual
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    popup.location.href = dailyLink;
+    estado.textContent = "Videollamada iniciada.";
+    await cargarAvisos();
+  } catch (error) {
+    console.error("Error al abrir Daily:", error);
+    estado.textContent = "Error al abrir la videollamada";
+    alert("No se pudo abrir la videollamada: " + (error.message || error));
+  }
+};
+
+window.finalizarVideollamada = async function (id) {
+  try {
+    await apiPost(`/avisos/${id}/estado`, {
+      estado: "finalizada",
+      resultado: "checkin_finalizado",
+      retornarKiosko: true,
+      agenteEmail: agenteEmailActual,
+      agenteUid: agenteUidActual
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    estado.textContent = "Videollamada finalizada.";
+    await salirDeDaily();
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    estado.textContent = "Error al finalizar";
+    alert("Error al finalizar la videollamada");
+  }
+};
+
+window.marcarEnProceso = async function (id) {
+  try {
+    await apiPost(`/avisos/${id}/estado`, {
+      estado: "en_proceso",
+      retornarKiosko: true,
+      agenteEmail: agenteEmailActual,
+      agenteUid: agenteUidActual
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    estado.textContent = "Caso marcado en proceso.";
+    await salirDeDaily();
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("Error al marcar en proceso");
+  }
+};
+
+window.marcarResuelta = async function (id) {
+  try {
+    await apiPost(`/avisos/${id}/estado`, {
+      estado: "resuelta",
+      retornarKiosko: true,
+      agenteEmail: agenteEmailActual,
+      agenteUid: agenteUidActual
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    estado.textContent = "Caso marcado como resuelto.";
+    await salirDeDaily();
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("Error al resolver");
+  }
+};
+
+window.enviarAHistorico = async function (id) {
+  try {
+    await apiPost(`/avisos/${id}/estado`, {
+      estado: "resuelta",
+      resultado: "llamada_manual_historico",
+      retornarKiosko: false,
+      agenteEmail: agenteEmailActual,
+      agenteUid: agenteUidActual
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    estado.textContent = "Llamada enviada a histórico.";
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("Error al enviar la llamada a histórico");
+  }
+};
+
+window.volverKioskoInicio = async function (id) {
+  try {
+    await apiPost(`/avisos/${id}/estado`, {
+      estado: "retorno_inicio",
+      retornarKiosko: true,
+      agenteEmail: agenteEmailActual,
+      agenteUid: agenteUidActual
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    await salirDeDaily();
+    estado.textContent = "Orden de retorno a pantalla inicial enviada.";
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("Error al devolver el kiosko al inicio");
+  }
+};
+
+window.archivarCaso = async function (id) {
+  try {
+    await apiPost(`/avisos/${id}/estado`, {
+      estado: "archivada",
+      retornarKiosko: false,
+      agenteEmail: agenteEmailActual,
+      agenteUid: agenteUidActual
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    estado.textContent = "Caso archivado.";
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("Error al archivar");
+  }
+};
+
+window.borrarCaso = async function (id) {
+  const confirmar = confirm("⚠️ Vas a borrar este registro definitivamente.\n\n¿Continuar?");
+  if (!confirmar) return;
+
+  try {
+    await apiDelete(`/avisos/${id}`, {
+      "X-Admin-Token": ADMIN_TOKEN
+    });
+
+    estado.textContent = "Registro eliminado definitivamente.";
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("Error al borrar el registro");
+  }
+};
+
+window.guardarAnotacion = async function (id) {
+  try {
+    const textarea = document.getElementById(`nota-${id}`);
+    if (!textarea) return;
+
+    const texto = textarea.value.trim();
+
+    await apiPost(`/avisos/${id}/anotacion`, {
+      anotacionAgente: texto
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    estado.textContent = "Anotación guardada correctamente.";
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("Error al guardar la anotación");
+  }
+};
+
+window.guardarContacto = async function (id) {
+  try {
+    const nombreInput = document.getElementById(`nombre-${id}`);
+    const telefonoInput = document.getElementById(`telefono-${id}`);
+
+    await apiPost(`/avisos/${id}/contacto`, {
+      nombreHuesped: nombreInput ? nombreInput.value.trim() : "",
+      telefonoContacto: telefonoInput ? telefonoInput.value.trim() : ""
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    estado.textContent = "Contacto actualizado correctamente.";
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("Error al guardar nombre y teléfono");
+  }
+};
+
+window.guardarHistoricoCompleto = async function (id) {
+  try {
+    const item = historicoGlobal.find((entry) => entry.id === id);
+    if (!item) return;
+    registroSeleccionado = { id: item.id, data: item.data };
+    abrirFichaHistorico(item.data);
+    await guardarSeleccion();
+  } catch (error) {
+    console.error(error);
+    alert("Error al guardar los cambios del histórico");
+  }
+};
+
+window.guardarSeleccion = async function () {
+  try {
+    if (!registroSeleccionado) {
+      alert("Selecciona un registro del histórico");
+      return;
+    }
+
+    const id = registroSeleccionado.id;
+
+    await apiPost(`/avisos/${id}/contacto`, {
+      nombreHuesped: historyEditNombre ? historyEditNombre.value.trim() : "",
+      telefonoContacto: historyEditTelefono ? historyEditTelefono.value.trim() : "",
+      email: historyEditEmail ? historyEditEmail.value.trim() : ""
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    await apiPost(`/avisos/${id}/anotacion`, {
+      anotacionAgente: historyEditNota ? historyEditNota.value.trim() : ""
+    }, {
+      "X-Agent-Token": AGENT_TOKEN
+    });
+
+    estado.textContent = "Registro histórico actualizado correctamente.";
+    await cargarAvisos();
+  } catch (error) {
+    console.error(error);
+    alert("Error al guardar el registro seleccionado");
+  }
+};
+
+window.archivarSeleccion = function () {
+  if (!registroSeleccionado) {
+    alert("Selecciona un registro del histórico");
+    return;
+  }
+  archivarCaso(registroSeleccionado.id);
+};
+
+window.borrarSeleccion = function () {
+  if (!registroSeleccionado) {
+    alert("Selecciona un registro del histórico");
+    return;
+  }
+  borrarCaso(registroSeleccionado.id);
+};
+
+onAuthStateChanged(auth, (user) => {
+  if (!user) {
+    window.location.replace("login-agente.html");
+    return;
+  }
+
+  agenteActual = user;
+  agenteEmailActual = user.email || "";
+  agenteUidActual = user.uid || "";
+
+  if (agenteActivoText) {
+    agenteActivoText.textContent = `Agente activo: ${agenteEmailActual}`;
+  }
+
+  iniciarPollingAvisos();
+});
+
+window.addEventListener("beforeunload", () => {
+  if (pollTimer) clearInterval(pollTimer);
 });
 </script>
-<script>
-  async function salirDeDaily() {
-    try {
-      if (window.callFrame) {
-        await window.callFrame.leave();
-        await window.callFrame.destroy();
-        window.callFrame = null;
-      }
-
-      const contenedor = document.getElementById("daily-container");
-      if (contenedor) {
-        contenedor.innerHTML = "";
-      }
-
-      console.log("Sala Daily cerrada y limpiada");
-    } catch (error) {
-      console.error("Error al salir de Daily:", error);
-    }
-  }
-</script>
-  <div id="daily-container" style="width:100%; max-width:960px; height:650px; margin:20px auto;"></div>
-</body>
 </body>
 </html>
 
