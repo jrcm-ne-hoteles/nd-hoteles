@@ -119,34 +119,6 @@
 </head>
 
 <body>
-  <div id="pantallaConexion" style="
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  min-height:100vh;
-  background:#111;
-  color:#fff;
-  font-family:Arial,sans-serif;
-  text-align:center;
-  padding:24px;
-">
-  <div>
-    <div style="font-size:28px; font-weight:700; margin-bottom:14px;">
-      Conectando con RECEPCIÓN ND HOTELES
-    </div>
-    <div style="font-size:16px; opacity:0.82;">
-      En breve serás atendido por nuestro equipo
-    </div>
-  </div>
-</div>
-
-<iframe
-  id="dailyFrame"
-  src=""
-  allow="camera; microphone; fullscreen; display-capture"
-  style="display:none; width:100%; height:100vh; border:none;"
-></iframe>
-
   <div class="logo-overlay">
     <img src="https://grupondhoteles.com/wp-content/uploads/Logotipo-ND-Hoteles-blanco.webp" alt="ND Hoteles">
   </div>
@@ -165,223 +137,229 @@
     </div>
   </div>
 
-<script type="module">
-function getParam(name) {
-  return new URL(window.location.href).searchParams.get(name);
-}
-
-const API_BASE = "https://nd-hoteles-backend.onrender.com";
-const avisoId = getParam("id");
-const estadoMini = document.getElementById("estadoMini");
-
-let llamadaAbierta = false;
-let dailyWindow = null;
-let yaVolviendo = false;
-
-function abrirDailyEnVentana(dailyLink) {
-  if (llamadaAbierta) return;
-
-  llamadaAbierta = true;
-  estadoMini.textContent = "Conectando con RECEPCIÓN ND HOTELES…";
-
-  try {
-    dailyWindow = window.open("", "dailyKioskoWindow");
-
-    if (!dailyWindow) {
-      estadoMini.textContent = "El navegador ha bloqueado la videollamada.";
-      llamadaAbierta = false;
-      return;
+  <script type="module">
+    function getParam(name) {
+      return new URL(window.location.href).searchParams.get(name);
     }
 
-    dailyWindow.document.write(`
-      <!DOCTYPE html>
-      <html lang="es">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>ND Hoteles · Conectando…</title>
-        <style>
-          html, body {
-            margin: 0;
-            height: 100%;
-            background: radial-gradient(circle at top, #191919 0%, #080808 55%, #000000 100%);
-            font-family: Arial, sans-serif;
-            color: white;
-          }
+    const API_BASE = "https://nd-hoteles-backend.onrender.com";
+    const avisoId = getParam("id");
+    const estadoMini = document.getElementById("estadoMini");
 
-          .wrap {
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            min-height:100vh;
-            text-align:center;
-            padding: 24px;
-          }
+    let llamadaAbierta = false;
+    let dailyWindow = null;
+    let yaVolviendo = false;
+    let pollingId = null;
 
-          .logo img {
-            width:180px;
-            margin-bottom:20px;
-            max-width: 70vw;
-          }
+    function abrirDailyEnVentana(dailyLink) {
+      if (llamadaAbierta) return;
 
-          h1 {
-            font-size:30px;
-            margin-bottom:12px;
-            line-height: 1.2;
-          }
+      llamadaAbierta = true;
+      estadoMini.textContent = "Conectando con RECEPCIÓN ND HOTELES…";
 
-          p {
-            opacity:0.82;
-            font-size: 16px;
-            line-height: 1.4;
-          }
+      try {
+        dailyWindow = window.open("", "dailyKioskoWindow");
 
-          .loader {
-            margin-top:20px;
-            display:flex;
-            justify-content:center;
-            gap:10px;
-          }
+        if (!dailyWindow) {
+          estadoMini.textContent = "El navegador ha bloqueado la videollamada.";
+          llamadaAbierta = false;
+          return;
+        }
 
-          .loader span {
-            width:12px;
-            height:12px;
-            background:#7dffb3;
-            border-radius:50%;
-            animation:bounce 1.2s infinite;
-          }
+        dailyWindow.document.write(`
+          <!DOCTYPE html>
+          <html lang="es">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>ND Hoteles · Conectando…</title>
+            <style>
+              html, body {
+                margin: 0;
+                height: 100%;
+                background: radial-gradient(circle at top, #191919 0%, #080808 55%, #000000 100%);
+                font-family: Arial, sans-serif;
+                color: white;
+              }
 
-          .loader span:nth-child(2){animation-delay:.15s}
-          .loader span:nth-child(3){animation-delay:.3s}
+              .wrap {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                text-align: center;
+                padding: 24px;
+              }
 
-          @keyframes bounce{
-            0%,80%,100%{opacity:.3;transform:scale(.8)}
-            40%{opacity:1;transform:scale(1.2)}
-          }
-        </style>
-      </head>
-      <body>
-        <div class="wrap">
-          <div>
-            <div class="logo">
-              <img src="https://grupondhoteles.com/wp-content/uploads/Logotipo-ND-Hoteles-blanco.webp" alt="ND Hoteles">
+              .logo img {
+                width: 180px;
+                margin-bottom: 20px;
+                max-width: 70vw;
+                filter: drop-shadow(0 0 14px rgba(255,255,255,0.12));
+              }
+
+              h1 {
+                font-size: 30px;
+                margin-bottom: 12px;
+                line-height: 1.2;
+              }
+
+              p {
+                opacity: 0.82;
+                font-size: 16px;
+                line-height: 1.4;
+                margin: 0;
+              }
+
+              .loader {
+                margin-top: 20px;
+                display: flex;
+                justify-content: center;
+                gap: 10px;
+              }
+
+              .loader span {
+                width: 12px;
+                height: 12px;
+                background: #7dffb3;
+                border-radius: 50%;
+                animation: bounce 1.2s infinite;
+              }
+
+              .loader span:nth-child(2) { animation-delay: .15s; }
+              .loader span:nth-child(3) { animation-delay: .3s; }
+
+              @keyframes bounce {
+                0%, 80%, 100% { opacity: .3; transform: scale(.8); }
+                40% { opacity: 1; transform: scale(1.2); }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="wrap">
+              <div>
+                <div class="logo">
+                  <img src="https://grupondhoteles.com/wp-content/uploads/Logotipo-ND-Hoteles-blanco.webp" alt="ND Hoteles">
+                </div>
+                <h1>Conectando con RECEPCIÓN ND HOTELES</h1>
+                <p>En breve serás atendido por nuestro equipo</p>
+                <div class="loader">
+                  <span></span><span></span><span></span>
+                </div>
+              </div>
             </div>
-            <h1>Conectando con RECEPCIÓN ND HOTELES</h1>
-            <p>En breve serás atendido por nuestro equipo</p>
-            <div class="loader">
-              <span></span><span></span><span></span>
-            </div>
-          </div>
-        </div>
-      </body>
-      </html>
-    `);
+          </body>
+          </html>
+        `);
 
-    dailyWindow.document.close();
+        dailyWindow.document.close();
 
-    setTimeout(() => {
+        setTimeout(() => {
+          try {
+            if (dailyWindow && !dailyWindow.closed) {
+              dailyWindow.location.replace(dailyLink);
+            }
+          } catch (e) {
+            console.error("Error al redirigir a Daily:", e);
+          }
+        }, 300);
+
+        estadoMini.textContent = "Conexión abierta. Esperando atención…";
+      } catch (e) {
+        console.error("Error al abrir Daily:", e);
+        estadoMini.textContent = "Error al abrir Daily.";
+        llamadaAbierta = false;
+      }
+    }
+
+    function volverAlInicio() {
+      if (yaVolviendo) return;
+      yaVolviendo = true;
+
+      estadoMini.textContent = "Gracias. Volviendo a la pantalla principal…";
+
       try {
         if (dailyWindow && !dailyWindow.closed) {
-          dailyWindow.location.replace(dailyLink);
+          dailyWindow.close();
         }
       } catch (e) {
-        console.error("Error al redirigir a Daily:", e);
+        console.error("No se pudo cerrar la ventana Daily:", e);
       }
-    }, 300);
 
-    estadoMini.textContent = "Conexión abierta. Esperando atención…";
-  } catch (e) {
-    console.error("Error al abrir Daily:", e);
-    estadoMini.textContent = "Error al abrir Daily.";
-    llamadaAbierta = false;
-  }
-}
+      if (pollingId) {
+        clearInterval(pollingId);
+      }
 
-function volverAlInicio() {
-  if (yaVolviendo) return;
-  yaVolviendo = true;
-
-  estadoMini.textContent = "Gracias. Volviendo a la pantalla principal…";
-
-  try {
-    if (dailyWindow && !dailyWindow.closed) {
-      dailyWindow.close();
-    }
-  } catch (e) {
-    console.error("No se pudo cerrar la ventana Daily:", e);
-  }
-
-  setTimeout(() => {
-   if (dailyWindow && !dailyWindow.closed) {
-  dailyWindow.location.replace(dailyLink);
-}
-
-async function leerAvisoActual() {
-  try {
-    const response = await fetch(`${API_BASE}/avisos`);
-    const avisos = await response.json();
-
-    if (!Array.isArray(avisos)) {
-      estadoMini.textContent = "Respuesta inválida del backend.";
-      return;
+      setTimeout(() => {
+        window.location.replace("kiosko.html");
+      }, 300);
     }
 
-    const data = avisos.find((item) => item.id === avisoId);
+    async function leerAvisoActual() {
+      try {
+        const response = await fetch(`${API_BASE}/avisos`);
+        const avisos = await response.json();
 
-    if (!data) {
-      estadoMini.textContent = "No se encuentra el aviso.";
-      return;
-    }
+        if (!Array.isArray(avisos)) {
+          estadoMini.textContent = "Respuesta inválida del backend.";
+          return;
+        }
 
-    const estado = (data.estado || "").toString().trim().toLowerCase();
-    const retornarKiosko = data.retornarKiosko === true;
+        const data = avisos.find((item) => item.id === avisoId);
 
-    if (!llamadaAbierta && !yaVolviendo) {
-      if (estado === "nuevo") {
-        estadoMini.textContent = "Aviso enviado correctamente. Esperando disponibilidad…";
-      } else if (estado === "en_atencion") {
-        estadoMini.textContent = "Recepción está accediendo a tu solicitud…";
-      } else if (estado === "listo_para_entrar") {
-        estadoMini.textContent = "Estamos terminando de conectarte…";
-      } else {
-        estadoMini.textContent = "Estado actual: " + (estado || "sin estado");
+        if (!data) {
+          estadoMini.textContent = "No se encuentra el aviso.";
+          return;
+        }
+
+        const estado = (data.estado || "").toString().trim().toLowerCase();
+        const retornarKiosko = data.retornarKiosko === true;
+
+        if (!llamadaAbierta && !yaVolviendo) {
+          if (estado === "nuevo") {
+            estadoMini.textContent = "Aviso enviado correctamente. Esperando disponibilidad…";
+          } else if (estado === "en_atencion") {
+            estadoMini.textContent = "Recepción está accediendo a tu solicitud…";
+          } else if (estado === "listo_para_entrar") {
+            estadoMini.textContent = "Conectando con RECEPCIÓN ND HOTELES…";
+          } else {
+            estadoMini.textContent = "Estado actual: " + (estado || "sin estado");
+          }
+        }
+
+        if (estado === "listo_para_entrar" && data.dailyLink && !llamadaAbierta) {
+          abrirDailyEnVentana(data.dailyLink);
+          return;
+        }
+
+        if (
+          estado === "finalizada" ||
+          estado === "retorno_inicio" ||
+          estado === "resuelta" ||
+          retornarKiosko
+        ) {
+          volverAlInicio();
+          return;
+        }
+      } catch (error) {
+        console.error("Error leyendo aviso desde backend:", error);
+        estadoMini.textContent = "Error leyendo estado.";
       }
     }
 
-    if (estado === "listo_para_entrar" && data.dailyLink && !llamadaAbierta) {
-      abrirDailyEnVentana(data.dailyLink);
-      return;
+    if (!avisoId) {
+      estadoMini.textContent = "Falta el identificador del aviso.";
+    } else {
+      leerAvisoActual();
+      pollingId = setInterval(leerAvisoActual, 2500);
     }
 
-    if (
-      estado === "finalizada" ||
-      estado === "retorno_inicio" ||
-      estado === "resuelta" ||
-      retornarKiosko
-    ) {
-      volverAlInicio();
-      return;
-    }
-  } catch (error) {
-    console.error("Error leyendo aviso desde backend:", error);
-    estadoMini.textContent = "Error leyendo estado.";
-  }
-}
-
-if (!avisoId) {
-  estadoMini.textContent = "Falta el identificador del aviso.";
-} else {
-  leerAvisoActual();
-  setInterval(leerAvisoActual, 2500);
-}
-
-window.addEventListener("focus", () => {
-  if (yaVolviendo) return;
-  if (llamadaAbierta) {
-    estadoMini.textContent = "Conexión abierta. Esperando fin de atención…";
-  }
-});
-</script>
-
+    window.addEventListener("focus", () => {
+      if (yaVolviendo) return;
+      if (llamadaAbierta) {
+        estadoMini.textContent = "Conexión abierta. Esperando fin de atención…";
+      }
+    });
+  </script>
 </body>
 </html>
