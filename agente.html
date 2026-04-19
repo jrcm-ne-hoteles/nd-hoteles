@@ -2074,8 +2074,16 @@ onSnapshot(collection(db, "avisos"), (snapshot) => {
     try {
       if (window.callFrame) {
         await window.callFrame.leave();
-        console.log("Sala Daily cerrada");
+        await window.callFrame.destroy();
+        window.callFrame = null;
       }
+
+      const contenedor = document.getElementById("daily-container");
+      if (contenedor) {
+        contenedor.innerHTML = "";
+      }
+
+      console.log("Sala Daily cerrada y limpiada");
     } catch (error) {
       console.error("Error al salir de Daily:", error);
     }
