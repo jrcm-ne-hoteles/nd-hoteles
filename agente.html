@@ -1736,7 +1736,6 @@ window.atenderCanalVideo = async (id, dailyLink) => {
       return;
     }
 
-    // Abrir la ventana inmediatamente desde el clic del usuario
     nuevaVentana = window.open("", "_blank");
 
     if (!nuevaVentana || nuevaVentana.closed || typeof nuevaVentana.closed === "undefined") {
@@ -1746,18 +1745,26 @@ window.atenderCanalVideo = async (id, dailyLink) => {
     }
 
     nuevaVentana.document.write(`
-      <html>
-        <head>
-          <title>Conectando con Daily…</title>
-        </head>
-        <body style="margin:0; font-family:Arial,sans-serif; background:#111; color:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh;">
-          <div>Conectando con la videollamada…</div>
-        </body>
-      </html>
+  <html>
+    <head>
+      <title>ND Hoteles · Conectando…</title>
+    </head>
+    <body style="margin:0; font-family:Arial,sans-serif; background:#111; color:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh;">
+      <div style="text-align:center;">
+        <div style="font-size:24px; font-weight:700; margin-bottom:14px;">
+          Conectando con RECEPCIÓN ND HOTELES
+        </div>
+        <div style="font-size:15px; opacity:0.8;">
+          En breve serás atendido por nuestro equipo
+        </div>
+      </div>
+    </body>
+  </html>
+`);
     `);
     nuevaVentana.document.close();
 
-    estado.textContent = "Abriendo llamada para el agente…";
+    estado.textContent = "Conectando con Daily y preparando acceso del huésped…";
 
     const r1 = await fetch(`${API_BASE}/avisos/${id}/estado`, {
       method: "POST",
@@ -1776,10 +1783,8 @@ window.atenderCanalVideo = async (id, dailyLink) => {
     const d1 = await r1.json();
     if (!r1.ok) throw new Error(d1.detail || "No se pudo pasar a en_atencion");
 
-    // Navegar la ventana ya abierta hacia Daily
     nuevaVentana.location.href = dailyLink;
-
-    estado.textContent = "Agente dentro. Dando paso al huésped…";
+    estado.textContent = "Agente dentro. Esperando conexión del huésped…";
 
     setTimeout(async () => {
       try {
@@ -1805,7 +1810,7 @@ window.atenderCanalVideo = async (id, dailyLink) => {
         console.error("Error al cambiar a listo_para_entrar:", errorInterno);
         estado.textContent = "Error al autorizar acceso del huésped";
       }
-    }, 1200);
+    }, 1800);
 
   } catch (error) {
     console.error("Error en atenderCanalVideo:", error);
@@ -1818,7 +1823,6 @@ window.atenderCanalVideo = async (id, dailyLink) => {
     alert("Error al atender por videollamada. Revisa consola.");
   }
 };
-
 window.finalizarVideollamada = async function (id) {
   try {
     await apiPost(`/avisos/${id}/estado`, {
