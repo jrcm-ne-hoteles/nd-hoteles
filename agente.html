@@ -1734,15 +1734,18 @@ window.atenderCanalVideo = async function (id, dailyLink) {
       return;
     }
 
-    const popup = window.open("", "_blank", "noopener,noreferrer");
-    if (!popup) {
+    const popup = window.open("", "_blank");
+
+    if (!popup || popup.closed || typeof popup.closed === "undefined") {
       alert("El navegador ha bloqueado la apertura de la videollamada.");
       return;
     }
 
     popup.document.write(`
       <html>
-        <head><title>Conectando videollamada…</title></head>
+        <head>
+          <title>Conectando videollamada…</title>
+        </head>
         <body style="margin:0; font-family:Arial,sans-serif; background:#111; color:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh;">
           <div>Conectando con la videollamada…</div>
         </body>
@@ -1764,6 +1767,7 @@ window.atenderCanalVideo = async function (id, dailyLink) {
     popup.location.href = dailyLink;
     estado.textContent = "Videollamada iniciada.";
     await cargarAvisos();
+
   } catch (error) {
     console.error("Error al abrir Daily:", error);
     estado.textContent = "Error al abrir la videollamada";
