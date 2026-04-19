@@ -1345,6 +1345,7 @@ window.finalizarVideollamada = async (id) => {
     if (!response.ok) throw new Error(data.detail || "Error al finalizar");
 
     estado.textContent = "Videollamada finalizada.";
+    await salirDeDaily();
   } catch (error) {
     console.error(error);
     estado.textContent = "Error al finalizar";
@@ -1372,6 +1373,7 @@ window.marcarEnProceso = async (id) => {
     if (!response.ok) throw new Error(data.detail || "Error al marcar en proceso");
 
     estado.textContent = "Caso marcado en proceso.";
+    await salirDeDaily();
   } catch (error) {
     console.error(error);
     alert("Error al marcar en proceso");
@@ -1398,6 +1400,7 @@ window.marcarResuelta = async (id) => {
     if (!response.ok) throw new Error(data.detail || "Error al resolver");
 
     estado.textContent = "Caso marcado como resuelto.";
+    await salirDeDaily();
   } catch (error) {
     console.error(error);
     alert("Error al resolver");
@@ -1449,7 +1452,7 @@ window.volverKioskoInicio = async (id) => {
 
     const data = await response.json();
     if (!response.ok) throw new Error(data.detail || "Error al devolver al inicio");
-
+    await salirDeDaily();
     estado.textContent = "Orden de retorno a pantalla inicial enviada.";
   } catch (error) {
     console.error(error);
@@ -2066,6 +2069,18 @@ onSnapshot(collection(db, "avisos"), (snapshot) => {
     await entrarEnDaily();
   });
 </script> 
+<script>
+  async function salirDeDaily() {
+    try {
+      if (window.callFrame) {
+        await window.callFrame.leave();
+        console.log("Sala Daily cerrada");
+      }
+    } catch (error) {
+      console.error("Error al salir de Daily:", error);
+    }
+  }
+</script>
 </body>
 </html>
 
