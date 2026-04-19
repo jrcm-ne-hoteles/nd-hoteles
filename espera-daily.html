@@ -257,8 +257,7 @@ const urlDaily = new URL(dailyLink);
 urlDaily.searchParams.set("theme", "dark");
 urlDaily.searchParams.set("lang", "es");
 
-dailyWindow.location.replace(urlDaily.toString());
-       setTimeout(() => {
+setTimeout(() => {
   try {
     if (dailyWindow && !dailyWindow.closed) {
       const urlDaily = new URL(dailyLink);
