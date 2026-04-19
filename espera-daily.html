@@ -305,10 +305,10 @@ function abrirDailyEnVentana(dailyLink) {
     }
 
     setTimeout(() => {
-      try {
-        if (dailyWindow && !dailyWindow.closed) {
-          dailyWindow.location.replace(dailyLink);
-        }
+  if (dailyWindow && !dailyWindow.closed) {
+    dailyWindow.location.replace(dailyLink);
+  }
+}, 200);
    
     estadoMini.textContent = "Conexión abierta. Esperando fin de atención…";
   } catch (e) {
