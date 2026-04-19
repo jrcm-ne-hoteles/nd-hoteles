@@ -215,20 +215,25 @@ function abrirDailyEnVentana(dailyLink) {
             justify-content:center;
             min-height:100vh;
             text-align:center;
+            padding: 24px;
           }
 
           .logo img {
             width:180px;
             margin-bottom:20px;
+            max-width: 70vw;
           }
 
           h1 {
             font-size:30px;
             margin-bottom:12px;
+            line-height: 1.2;
           }
 
           p {
-            opacity:0.8;
+            opacity:0.82;
+            font-size: 16px;
+            line-height: 1.4;
           }
 
           .loader {
@@ -259,10 +264,10 @@ function abrirDailyEnVentana(dailyLink) {
         <div class="wrap">
           <div>
             <div class="logo">
-              <img src="https://grupondhoteles.com/wp-content/uploads/Logotipo-ND-Hoteles-blanco.webp">
+              <img src="https://grupondhoteles.com/wp-content/uploads/Logotipo-ND-Hoteles-blanco.webp" alt="ND Hoteles">
             </div>
             <h1>Conectando con RECEPCIÓN ND HOTELES</h1>
-            <p>En breve serás atendido</p>
+            <p>En breve serás atendido por nuestro equipo</p>
             <div class="loader">
               <span></span><span></span><span></span>
             </div>
@@ -274,15 +279,20 @@ function abrirDailyEnVentana(dailyLink) {
 
     dailyWindow.document.close();
 
-    if (dailyWindow && !dailyWindow.closed) {
-      dailyWindow.location.replace(dailyLink);
-    }
+    setTimeout(() => {
+      try {
+        if (dailyWindow && !dailyWindow.closed) {
+          dailyWindow.location.replace(dailyLink);
+        }
+      } catch (e) {
+        console.error("Error al redirigir a Daily:", e);
+      }
+    }, 300);
 
     estadoMini.textContent = "Conexión abierta. Esperando atención…";
-
   } catch (e) {
-    console.error(e);
-    estadoMini.textContent = "Error al abrir la videollamada.";
+    console.error("Error al abrir Daily:", e);
+    estadoMini.textContent = "Error al abrir Daily.";
     llamadaAbierta = false;
   }
 }
