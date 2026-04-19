@@ -337,8 +337,8 @@ function volverAlInicio() {
   }
 
   setTimeout(() => {
-    window.location.replace("kiosko.html");
-  }, 300);
+   if (dailyWindow && !dailyWindow.closed) {
+  dailyWindow.location.replace(dailyLink);
 }
 
 async function leerAvisoActual() {
