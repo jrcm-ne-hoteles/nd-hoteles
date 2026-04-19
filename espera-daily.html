@@ -309,11 +309,7 @@ function abrirDailyEnVentana(dailyLink) {
         if (dailyWindow && !dailyWindow.closed) {
           dailyWindow.location.replace(dailyLink);
         }
-      } catch (e) {
-        console.error("Error al redirigir a Daily:", e);
-      }
-    }, 700);
-
+   
     estadoMini.textContent = "Conexión abierta. Esperando fin de atención…";
   } catch (e) {
     console.error("Error al abrir Daily:", e);
