@@ -1745,26 +1745,25 @@ window.atenderCanalVideo = async (id, dailyLink) => {
     }
 
     nuevaVentana.document.write(`
-  <html>
-    <head>
-      <title>ND Hoteles · Conectando…</title>
-    </head>
-    <body style="margin:0; font-family:Arial,sans-serif; background:#111; color:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh;">
-      <div style="text-align:center;">
-        <div style="font-size:24px; font-weight:700; margin-bottom:14px;">
-          Conectando con RECEPCIÓN ND HOTELES
-        </div>
-        <div style="font-size:15px; opacity:0.8;">
-          En breve serás atendido por nuestro equipo
-        </div>
-      </div>
-    </body>
-  </html>
-`);
+      <html>
+        <head>
+          <title>ND Hoteles · Conectando…</title>
+        </head>
+        <body style="margin:0; font-family:Arial,sans-serif; background:#111; color:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh;">
+          <div style="text-align:center;">
+            <div style="font-size:24px; font-weight:700; margin-bottom:14px;">
+              Conectando con RECEPCIÓN ND HOTELES
+            </div>
+            <div style="font-size:15px; opacity:0.8;">
+              En breve serás atendido por nuestro equipo
+            </div>
+          </div>
+        </body>
+      </html>
     `);
     nuevaVentana.document.close();
 
-    estado.textContent = "Conectando con Daily y preparando acceso del huésped…";
+    estado.textContent = "Conectando con RECEPCIÓN ND HOTELES…";
 
     const r1 = await fetch(`${API_BASE}/avisos/${id}/estado`, {
       method: "POST",
@@ -1784,7 +1783,7 @@ window.atenderCanalVideo = async (id, dailyLink) => {
     if (!r1.ok) throw new Error(d1.detail || "No se pudo pasar a en_atencion");
 
     nuevaVentana.location.href = dailyLink;
-    estado.textContent = "Agente dentro. Esperando conexión del huésped…";
+    estado.textContent = "Agente conectado. Esperando acceso del huésped…";
 
     setTimeout(async () => {
       try {
