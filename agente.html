@@ -1250,7 +1250,6 @@ function esDeHoy(valor) {
 function debeMostrarBotonRetorno(data) {
   return (data.origenCanal || "kiosko").toLowerCase() === "kiosko";
 }
-
 window.atenderCanalVideo = async (id, dailyLink) => {
   try {
     if (!id) {
@@ -1279,48 +1278,29 @@ window.atenderCanalVideo = async (id, dailyLink) => {
       })
     });
 
-    const d1 = await r1.json();
-    if (!r1.ok) throw new Error(d1.detail || "No se pudo pasar a en_atencion");
+    const data1 = await r1.json();
+    if (!r1.ok) throw new Error(data1.detail || "Error al abrir la llamada");
 
-    const nuevaVentana = window.open(dailyLink, "_blank");
-
-    if (!nuevaVentana) {
-      alert("El navegador ha bloqueado la apertura de Daily.");
-      estado.textContent = "Popup bloqueado al abrir Daily";
-      return;
+    if (window.callFrame) {
+      await salirDeDaily();
     }
 
-    estado.textContent = "Agente dentro. Dando paso al huésped…";
+    const contenedor = document.getElementById("daily-container");
+    if (!contenedor) {
+      throw new Error("No existe #daily-container");
+    }
 
-    setTimeout(async () => {
-      try {
-        const r2 = await fetch(`${API_BASE}/avisos/${id}/estado`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Agent-Token": AGENT_TOKEN
-          },
-          body: JSON.stringify({
-            estado: "listo_para_entrar",
-            retornarKiosko: false,
-            agenteEmail: agenteEmailActual,
-            agenteUid: agenteUidActual
-          })
-        });
+    window.callFrame = window.DailyIframe.createFrame(contenedor);
 
-        const d2 = await r2.json();
-        if (!r2.ok) throw new Error(d2.detail || "No se pudo pasar a listo_para_entrar");
+    await window.callFrame.join({
+      url: dailyLink
+    });
 
-        estado.textContent = "Huésped autorizado para entrar.";
-      } catch (errorInterno) {
-        console.error("Error al cambiar a listo_para_entrar:", errorInterno);
-        estado.textContent = "Error al autorizar acceso del huésped";
-      }
-    }, 1200);
+    estado.textContent = "Videollamada iniciada.";
   } catch (error) {
-    console.error("Error en atenderCanalVideo:", error);
-    estado.textContent = "Error al atender por videollamada";
-    alert("Error al atender por videollamada. Revisa consola.");
+    console.error(error);
+    estado.textContent = "Error al abrir la videollamada";
+    alert("No se pudo abrir la videollamada.");
   }
 };
 
@@ -2049,26 +2029,6 @@ onSnapshot(collection(db, "avisos"), (snapshot) => {
   inicializado = true;
 });
 </script>
- <script>
-  async function entrarEnDaily() {
-    try {
-      await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
-      // ⚠️ AQUÍ VA TU LÓGICA ACTUAL DE DAILY
-      // ejemplo:
-      // await callFrame.join({ url: "TU_URL_DAILY" });
-
-      console.log("Entrada a Daily correcta");
-    } catch (error) {
-      console.error("Error al entrar en Daily:", error);
-      alert("No se pudo acceder a cámara/micrófono o entrar en la llamada.");
-    }
-  }
-
-  document.getElementById("btnAtender").addEventListener("click", async () => {
-    await entrarEnDaily();
-  });
-</script> 
 <script>
   async function salirDeDaily() {
     try {
