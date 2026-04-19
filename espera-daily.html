@@ -253,16 +253,23 @@
         `);
 
         dailyWindow.document.close();
+const urlDaily = new URL(dailyLink);
+urlDaily.searchParams.set("theme", "dark");
+urlDaily.searchParams.set("lang", "es");
 
-        setTimeout(() => {
-          try {
-            if (dailyWindow && !dailyWindow.closed) {
-              dailyWindow.location.replace(dailyLink);
-            }
-          } catch (e) {
-            console.error("Error al redirigir a Daily:", e);
-          }
-        }, 300);
+dailyWindow.location.replace(urlDaily.toString());
+       setTimeout(() => {
+  try {
+    if (dailyWindow && !dailyWindow.closed) {
+      const urlDaily = new URL(dailyLink);
+      urlDaily.searchParams.set("theme", "dark");
+      urlDaily.searchParams.set("lang", "es");
+      dailyWindow.location.replace(urlDaily.toString());
+    }
+  } catch (e) {
+    console.error("Error al redirigir a Daily:", e);
+  }
+}, 150);
 
         estadoMini.textContent = "Conexión abierta. Esperando atención…";
       } catch (e) {
@@ -292,7 +299,7 @@
 
       setTimeout(() => {
         window.location.replace("kiosko.html");
-      }, 300);
+      }, 80);
     }
 
     async function leerAvisoActual() {
@@ -351,7 +358,7 @@
       estadoMini.textContent = "Falta el identificador del aviso.";
     } else {
       leerAvisoActual();
-      pollingId = setInterval(leerAvisoActual, 2500);
+      pollingId = setInterval(leerAvisoActual, 700);
     }
 
     window.addEventListener("focus", () => {
