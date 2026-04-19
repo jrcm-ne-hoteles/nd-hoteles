@@ -1287,15 +1287,21 @@ window.atenderCanalVideo = async (id, dailyLink) => {
     }
 
     const contenedor = document.getElementById("daily-container");
-    if (!contenedor) {
-      throw new Error("No existe #daily-container");
-    }
+if (!contenedor) {
+  throw new Error("No existe #daily-container");
+}
 
-    window.callFrame = window.DailyIframe.createFrame(contenedor);
+if (typeof DailyIframe === "undefined") {
+  throw new Error("DailyIframe no está cargado");
+}
 
-    await window.callFrame.join({
-      url: dailyLink
-    });
+await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+
+window.callFrame = DailyIframe.createFrame(contenedor);
+
+await window.callFrame.join({
+  url: dailyLink
+});
 
     estado.textContent = "Videollamada iniciada.";
   } catch (error) {
